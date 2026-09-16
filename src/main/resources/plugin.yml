@@ -1,7 +1,7 @@
 name: StoneBackpack
 version: '1.0.0'
 main: dev.stonebackpack.plugin.StoneBackpack
-api-version: '1.21'
+api-version: '26.2'
 author: Stone Plugins
 description: Adds personal backpacks with permission-based sizes, a physical backpack item, and fully translatable messages.
 folia-supported: false

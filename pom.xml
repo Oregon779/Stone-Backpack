@@ -14,9 +14,10 @@
         translatable messages for Paper servers.
     </description>
 
+    <!-- Portation to Paper API 26.2 / Java 25: source/target and paper-api version bumped below. -->
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -29,10 +30,11 @@
 
     <dependencies>
         <!-- Paper API is provided by the server at runtime -->
+        <!-- Pinned to a fixed build (not a version range) so it resolves without querying repo.papermc.io -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.21.4-R0.1-SNAPSHOT</version>
+            <version>26.2.build.124-stable</version>
             <scope>provided</scope>
         </dependency>
         <!-- Gson ships bundled with every Paper/Spigot server, used for the Modrinth update check -->
@@ -53,7 +55,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <release>21</release>
+                    <release>25</release>
                 </configuration>
             </plugin>
             <plugin>
