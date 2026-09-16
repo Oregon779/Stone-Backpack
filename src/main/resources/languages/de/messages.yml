@@ -1,0 +1,33 @@
+prefix: "&8[&7&lStone&6&lBackpack&8]&r "
+
+general:
+  no-permission: "&c✖ Du hast keine Berechtigung dafür."
+  player-only: "&c✖ Nur Spieler können diesen Befehl nutzen."
+  player-not-found: "&c✖ Spieler &f{player} &cnicht gefunden."
+  reload-success: "&a✔ Konfiguration und Nachrichten wurden neu geladen."
+  world-blocked: "&c✖ Diese Funktion ist in dieser Welt deaktiviert."
+
+backpack:
+  cooldown: "&c⏱ Bitte warte noch &b{seconds}s&c, bevor du das erneut machst."
+  opened-other: "&a✔ Du hast den Rucksack von &b{player} &ageöffnet."
+  inspecting: "&a✔ Du hast den Rucksack von &b{player} &azur Kontrolle geöffnet."
+  item-blocked: "&c✖ Dieses Item kann nicht in einem Rucksack gelagert werden."
+  received-item: "&a✔ Du hast einen Rucksack erhalten. Rechtsklick öffnet ihn."
+  gave-item: "&a✔ Du hast &b{player} &aeinen Rucksack gegeben."
+
+help:
+  header: "<gradient:#9AA5B1:#FFB055><bold>▬▬▬▬▬ StoneBackpack Hilfe ▬▬▬▬▬</bold></gradient>"
+  backpack: "&6/backpack &8» &7Öffne deinen eigenen Rucksack"
+  backpack-other: "&6/backpack <Spieler> &8» &7Öffne den Rucksack eines anderen Spielers"
+  give: "&6/stonebackpack give <Spieler> &8» &7Gib einem Spieler das physische Rucksack-Item"
+  inspect: "&6/stonebackpack inspect <Spieler> &8» &7Öffnet den Rucksack eines Spielers zum Ansehen oder Bearbeiten"
+  reload: "&6/stonebackpack reload &8» &7Lädt Konfiguration und Nachrichten neu"
+  checkupdate: "&6/stonebackpack checkupdate &8» &7Prüft Modrinth sofort auf eine neue Version"
+  help: "&6/stonebackpack help &8» &7Zeigt dieses Hilfemenü"
+
+update:
+  available: "&8[&7&lStone&6&lBackpack&8]&r &fEine neue Version ist verfügbar: &a{version} &7(du nutzt &c{current}&7, &e{behind} &7zurück). Prüfe Modrinth für ein Update."
+  versions-behind: "{count} Version(en)"
+  versions-behind-unknown: "eine unbekannte Anzahl an Versionen"
+  check-triggered: "&6⟳ &7Prüfe Modrinth jetzt auf Updates... &8Ergebnis erscheint in der Konsole."
+

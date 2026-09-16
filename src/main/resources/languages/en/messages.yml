@@ -1,0 +1,33 @@
+prefix: "&8[&7&lStone&6&lBackpack&8]&r "
+
+general:
+  no-permission: "&c✖ You don't have permission to do this."
+  player-only: "&c✖ Only players can use this command."
+  player-not-found: "&c✖ Player &f{player} &cnot found."
+  reload-success: "&a✔ Configuration and messages have been reloaded."
+  world-blocked: "&c✖ This feature is disabled in this world."
+
+backpack:
+  cooldown: "&c⏱ Please wait &b{seconds}s &cbefore using this again."
+  opened-other: "&a✔ You opened &b{player}'s &abackpack."
+  inspecting: "&a✔ You opened &b{player}'s &abackpack for inspection."
+  item-blocked: "&c✖ This item cannot be stored inside a backpack."
+  received-item: "&a✔ You received a backpack. Right-click it to open your storage."
+  gave-item: "&a✔ You gave a backpack to &b{player}&a."
+
+help:
+  header: "<gradient:#9AA5B1:#FFB055><bold>▬▬▬▬▬ StoneBackpack Help ▬▬▬▬▬</bold></gradient>"
+  backpack: "&6/backpack &8» &7Open your own backpack"
+  backpack-other: "&6/backpack <player> &8» &7Open another player's backpack"
+  give: "&6/stonebackpack give <player> &8» &7Give the physical backpack item to a player"
+  inspect: "&6/stonebackpack inspect <player> &8» &7Open a player's backpack to view or edit its contents"
+  reload: "&6/stonebackpack reload &8» &7Reload the configuration and messages"
+  checkupdate: "&6/stonebackpack checkupdate &8» &7Check Modrinth for a new version right now"
+  help: "&6/stonebackpack help &8» &7Show this help menu"
+
+update:
+  available: "&8[&7&lStone&6&lBackpack&8]&r &fA new version is available: &a{version} &7(you're on &c{current}&7, &e{behind} &7behind). Check Modrinth to update."
+  versions-behind: "{count} version(s)"
+  versions-behind-unknown: "an unknown number of versions"
+  check-triggered: "&6⟳ &7Checking Modrinth for updates now... &8watch the console for the result."
+

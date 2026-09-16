@@ -1,0 +1,47 @@
+language: en
+
+backpack:
+  title: "&8&l» &7{player}'s Backpack &8&l«"
+
+  default-rows: 3
+
+  size-permissions:
+    1: stonebackpack.size.1
+    2: stonebackpack.size.2
+    3: stonebackpack.size.3
+    4: stonebackpack.size.4
+    5: stonebackpack.size.5
+    6: stonebackpack.size.6
+
+  blocked-items: ["SHULKER_BOX", "WHITE_SHULKER_BOX", "ORANGE_SHULKER_BOX", "MAGENTA_SHULKER_BOX", "LIGHT_BLUE_SHULKER_BOX", "YELLOW_SHULKER_BOX", "LIME_SHULKER_BOX", "PINK_SHULKER_BOX", "GRAY_SHULKER_BOX", "LIGHT_GRAY_SHULKER_BOX", "CYAN_SHULKER_BOX", "PURPLE_SHULKER_BOX", "BLUE_SHULKER_BOX", "BROWN_SHULKER_BOX", "GREEN_SHULKER_BOX", "RED_SHULKER_BOX", "BLACK_SHULKER_BOX"]
+
+  item:
+    enabled: false
+    material: BUNDLE
+    name: "&6&lBackpack"
+    lore: ["&7Right-click to open your backpack"]
+    custom-model-data: 0
+    give-on-first-join: false
+
+  sounds:
+    open: BLOCK_ENDER_CHEST_OPEN
+    close: BLOCK_ENDER_CHEST_CLOSE
+    volume: 1.0
+    pitch: 1.0
+
+command:
+  cooldown-seconds: 2
+
+worlds:
+  mode: NONE
+  list: []
+
+data:
+  autosave-interval-minutes: 5
+  save-on-close: true
+  save-on-quit: true
+
+update-checker:
+  enabled: true
+  check-interval-minutes: 60
+

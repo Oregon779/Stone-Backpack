@@ -1,0 +1,66 @@
+name: StoneBackpack
+version: '1.0.0'
+main: dev.stonebackpack.plugin.StoneBackpack
+api-version: '1.21'
+author: Stone Plugins
+description: Adds personal backpacks with permission-based sizes, a physical backpack item, and fully translatable messages.
+folia-supported: false
+
+commands:
+  backpack:
+    description: Open your own backpack, or open another player's backpack.
+    usage: /backpack [player]
+    aliases: [bp, rucksack]
+    permission: stonebackpack.use
+    permission-message: "&cYou don't have permission to do this."
+
+  stonebackpack:
+    description: Main StoneBackpack command for giving items, inspecting backpacks, reloading the plugin and viewing help.
+    usage: /stonebackpack <reload|give|inspect|help|checkupdate>
+    aliases: [sbp, sb]
+
+permissions:
+  stonebackpack.admin:
+    description: Access to all StoneBackpack admin actions (opening/inspecting other players' backpacks, giving backpack items, reload, checkupdate, update notifications).
+    default: op
+
+  stonebackpack.use:
+    description: Allows opening your own backpack with /backpack.
+    default: true
+
+  stonebackpack.others:
+    description: Allows opening and editing the backpack of another player.
+    default: op
+
+  stonebackpack.bypass.cooldown:
+    description: Allows bypassing the /backpack command cooldown.
+    default: op
+
+  stonebackpack.bypass.blocklist:
+    description: Allows storing normally blocked items inside a backpack.
+    default: op
+
+  stonebackpack.size.1:
+    description: Grants a 1-row (9 slot) backpack.
+    default: false
+
+  stonebackpack.size.2:
+    description: Grants a 2-row (18 slot) backpack.
+    default: false
+
+  stonebackpack.size.3:
+    description: Grants a 3-row (27 slot) backpack.
+    default: false
+
+  stonebackpack.size.4:
+    description: Grants a 4-row (36 slot) backpack.
+    default: false
+
+  stonebackpack.size.5:
+    description: Grants a 5-row (45 slot) backpack.
+    default: false
+
+  stonebackpack.size.6:
+    description: Grants a 6-row (54 slot) backpack.
+    default: false
+
