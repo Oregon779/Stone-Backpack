@@ -34,7 +34,7 @@ public class BackpackCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        boolean openingOther = args.length > 0;
+        boolean openingOther = args.length > 0 && !args[0].equalsIgnoreCase(player.getName());
         if (openingOther) {
             if (!player.hasPermission("stonebackpack.others") && !player.hasPermission("stonebackpack.admin")) {
                 plugin.getMessageManager().send(player, "general.no-permission", null);

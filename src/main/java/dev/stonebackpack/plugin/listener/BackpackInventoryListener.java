@@ -2,6 +2,8 @@ package dev.stonebackpack.plugin.listener;
 
 import dev.stonebackpack.plugin.StoneBackpack;
 import dev.stonebackpack.plugin.model.BackpackHolder;
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.BundleContents;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -18,9 +20,12 @@ public class BackpackInventoryListener implements Listener {
         this.plugin = plugin;
     }
 
+    // getHolder(false) throughout: plain getHolder() builds a full block-state
+    // snapshot for chests and other block inventories, on every click anywhere
+    // on the server.
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (!(event.getInventory().getHolder() instanceof BackpackHolder)) {
+        if (!(event.getInventory().getHolder(false) instanceof BackpackHolder)) {
             return;
         }
         if (!(event.getWhoClicked() instanceof Player player)) {
@@ -44,7 +49,11 @@ public class BackpackInventoryListener implements Listener {
             return event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY ? event.getCurrentItem() : null;
         }
         return switch (event.getAction()) {
-            case PLACE_ALL, PLACE_SOME, PLACE_ONE, SWAP_WITH_CURSOR -> event.getCursor();
+            // PLACE_FROM_BUNDLE takes an item out of the bundle on the cursor;
+            // the *_INTO_BUNDLE pickups put the cursor into a bundle stored in
+            // the backpack. Either way the cursor's content ends up inside.
+            case PLACE_ALL, PLACE_SOME, PLACE_ONE, SWAP_WITH_CURSOR,
+                 PLACE_FROM_BUNDLE, PICKUP_ALL_INTO_BUNDLE, PICKUP_SOME_INTO_BUNDLE -> event.getCursor();
             case HOTBAR_SWAP, HOTBAR_MOVE_AND_READD -> {
                 int hotbarButton = event.getHotbarButton();
                 yield hotbarButton >= 0 ? event.getWhoClicked().getInventory().getItem(hotbarButton) : null;
@@ -55,7 +64,7 @@ public class BackpackInventoryListener implements Listener {
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (!(event.getInventory().getHolder() instanceof BackpackHolder)) {
+        if (!(event.getInventory().getHolder(false) instanceof BackpackHolder)) {
             return;
         }
         if (!(event.getWhoClicked() instanceof Player player)) {
@@ -75,23 +84,33 @@ public class BackpackInventoryListener implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
-        if (!(event.getInventory().getHolder() instanceof BackpackHolder holder)) {
+        if (!(event.getInventory().getHolder(false) instanceof BackpackHolder holder)) {
             return;
         }
-        if (event.getPlayer() instanceof Player player) {
-            player.playSound(player.getLocation(), plugin.getConfigManager().getCloseSound(),
-                    plugin.getConfigManager().getSoundVolume(), plugin.getConfigManager().getSoundPitch());
+        if (!(event.getPlayer() instanceof Player player)) {
+            return;
         }
-        if (plugin.getConfigManager().isSaveOnClose()) {
-            plugin.getBackpackManager().saveAndMaybeUnload(holder.getOwnerId());
-        }
+        player.playSound(player.getLocation(), plugin.getConfigManager().getCloseSound(),
+                plugin.getConfigManager().getSoundVolume(), plugin.getConfigManager().getSoundPitch());
+        plugin.getBackpackManager().handleClose(holder.getOwnerId(), player);
     }
 
+    // A bundle holding a blocked item would otherwise smuggle it in.
     private boolean isDisallowed(ItemStack item) {
-        if (item == null) {
+        if (item == null || item.isEmpty()) {
             return false;
         }
-        return plugin.getBackpackManager().isBlocked(item) || plugin.getItemManager().isBackpackItem(item);
+        if (plugin.getBackpackManager().isBlocked(item) || plugin.getItemManager().isBackpackItem(item)) {
+            return true;
+        }
+        BundleContents bundle = item.getData(DataComponentTypes.BUNDLE_CONTENTS);
+        if (bundle != null) {
+            for (ItemStack content : bundle.contents()) {
+                if (isDisallowed(content)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }
-

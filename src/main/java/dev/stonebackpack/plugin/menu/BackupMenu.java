@@ -107,7 +107,7 @@ public class BackupMenu implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (!(event.getInventory().getHolder() instanceof BackupMenuHolder holder)) {
+        if (!(event.getInventory().getHolder(false) instanceof BackupMenuHolder holder)) {
             return;
         }
         // Everything is cancelled, including clicks in the admin's own inventory:
@@ -126,13 +126,13 @@ public class BackupMenu implements Listener {
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (event.getInventory().getHolder() instanceof BackupMenuHolder) {
+        if (event.getInventory().getHolder(false) instanceof BackupMenuHolder) {
             event.setCancelled(true);
         }
     }
 
     private boolean isShowing(Player admin, BackupMenuHolder holder) {
-        return admin.getOpenInventory().getTopInventory().getHolder() == holder;
+        return holder.getInventory().equals(admin.getOpenInventory().getTopInventory());
     }
 
     private void handleClick(Player admin, BackupMenuHolder holder, int slot) {

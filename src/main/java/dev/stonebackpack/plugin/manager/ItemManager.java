@@ -49,11 +49,13 @@ public class ItemManager {
         return item;
     }
 
+    // Reads the tag through the item's PDC view: getItemMeta() would build a
+    // full meta copy on every right-click with any named or enchanted item.
     public boolean isBackpackItem(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) {
+        if (item == null || item.isEmpty()) {
             return false;
         }
-        Boolean tag = item.getItemMeta().getPersistentDataContainer().get(backpackItemKey, PersistentDataType.BOOLEAN);
+        Boolean tag = item.getPersistentDataContainer().get(backpackItemKey, PersistentDataType.BOOLEAN);
         return Boolean.TRUE.equals(tag);
     }
 

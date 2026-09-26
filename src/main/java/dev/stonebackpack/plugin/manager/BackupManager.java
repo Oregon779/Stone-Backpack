@@ -12,7 +12,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -65,13 +64,12 @@ public class BackupManager {
     // the saved file (online players who haven't opened their backpack yet).
     private void backupAll() {
         DataManager dataManager = plugin.getDataManager();
-        Set<UUID> handled = new HashSet<>(plugin.getBackpackManager().snapshotLoaded(dataManager::saveBackup));
+        Set<UUID> handled = new HashSet<>(plugin.getBackpackManager().snapshotLoaded(dataManager::saveBackupAsync));
 
-        Map<UUID, DataManager.BackpackData> unloaded = new HashMap<>();
         for (UUID ownerId : unloadedSinceLastRun.keySet()) {
             DataManager.BackpackData data = unloadedSinceLastRun.remove(ownerId);
             if (data != null && handled.add(ownerId)) {
-                unloaded.put(ownerId, data);
+                dataManager.saveBackupAsync(ownerId, data);
             }
         }
         List<UUID> fromSavedData = new ArrayList<>();
@@ -80,11 +78,9 @@ public class BackupManager {
                 fromSavedData.add(player.getUniqueId());
             }
         }
-
-        Bukkit.getAsyncScheduler().runNow(plugin, scheduled -> {
-            unloaded.forEach(dataManager::saveBackup);
-            fromSavedData.forEach(dataManager::backupSavedData);
-        });
+        if (!fromSavedData.isEmpty()) {
+            dataManager.backupSavedDataAsync(fromSavedData);
+        }
     }
 
     /**

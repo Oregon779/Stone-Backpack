@@ -14,10 +14,7 @@ public class PlayerQuitListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        if (plugin.getConfigManager().isSaveOnQuit()) {
-            plugin.getBackpackManager().saveAndMaybeUnload(event.getPlayer().getUniqueId());
-        }
+        plugin.getBackpackManager().handleQuit(event.getPlayer());
         plugin.getCooldownManager().clear(event.getPlayer().getUniqueId());
     }
 }
-

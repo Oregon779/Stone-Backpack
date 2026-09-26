@@ -17,13 +17,17 @@ import dev.stonebackpack.plugin.manager.MessageManager;
 import dev.stonebackpack.plugin.manager.UpdateChecker;
 import dev.stonebackpack.plugin.manager.WorldRestrictionManager;
 import dev.stonebackpack.plugin.menu.BackupMenu;
+import dev.stonebackpack.plugin.model.BackpackHolder;
+import dev.stonebackpack.plugin.model.BackupMenuHolder;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.concurrent.TimeUnit;
-
-public final class StoneBackpack extends JavaPlugin {
+public class StoneBackpack extends JavaPlugin {
     private ConfigManager configManager;
     private MessageManager messageManager;
     private DataManager dataManager;
@@ -80,7 +84,7 @@ public final class StoneBackpack extends JavaPlugin {
     @Override
     public void onDisable() {
         if (updateChecker != null) {
-            updateChecker.stop();
+            updateChecker.shutdown();
         }
         if (autosaveTask != null) {
             autosaveTask.cancel();
@@ -89,13 +93,29 @@ public final class StoneBackpack extends JavaPlugin {
             backupManager.stop();
         }
         if (backpackManager != null) {
-            // Blocking on purpose: once onDisable() has started, newly
-            // scheduled async/region tasks are not guaranteed to run, so
-            // this must not go through the same dispatch as the runtime
-            // autosave - see BackpackManager.saveAllBlocking().
-            backpackManager.saveAllBlocking();
+            // After a /reload, a still-open view would belong to the old plugin
+            // instance: nothing protects or saves it any more, so items taken
+            // out of it would also still be in the saved file (a dupe).
+            closePluginViews();
+            backpackManager.saveAllNow();
+        }
+        if (dataManager != null) {
+            dataManager.shutdown();
         }
         getLogger().info("StoneBackpack has been disabled.");
+    }
+
+    private void closePluginViews() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            InventoryView view = player.getOpenInventory();
+            if (view.getType() == InventoryType.CRAFTING || view.getType() == InventoryType.CREATIVE) {
+                continue;
+            }
+            InventoryHolder holder = view.getTopInventory().getHolder(false);
+            if (holder instanceof BackpackHolder || holder instanceof BackupMenuHolder) {
+                player.closeInventory();
+            }
+        }
     }
 
     public void reload() {

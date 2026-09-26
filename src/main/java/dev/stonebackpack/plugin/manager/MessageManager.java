@@ -123,11 +123,22 @@ public class MessageManager {
     }
 
     public Component component(String path, Map<String, String> placeholders) {
-        // Player names, counts and version strings can't contain '&'/'<'/'>',
-        // so substituting placeholders into the already-converted template
-        // is always safe and avoids re-running the conversion per call.
         String template = convertedCache.getOrDefault(path, path);
-        return parseConverted(substitute(template, placeholders));
+        return parseConverted(substituteEscaped(template, placeholders));
+    }
+
+    // Values are inserted into already-converted MiniMessage, so tags in them
+    // (a typed player name, a version string from Modrinth) must be escaped
+    // or they would be rendered, click events included.
+    private String substituteEscaped(String template, Map<String, String> placeholders) {
+        if (placeholders == null) {
+            return template;
+        }
+        String value = template;
+        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+            value = value.replace("{" + entry.getKey() + "}", miniMessage.escapeTags(entry.getValue()));
+        }
+        return value;
     }
 
     public Component parse(String text) {
@@ -170,7 +181,7 @@ public class MessageManager {
     public void send(CommandSender sender, String path, Map<String, String> placeholders) {
         String prefixTemplate = convertedCache.getOrDefault("prefix", "");
         String bodyTemplate = convertedCache.getOrDefault(path, path);
-        String combined = prefixTemplate + substitute(bodyTemplate, placeholders);
+        String combined = prefixTemplate + substituteEscaped(bodyTemplate, placeholders);
         sender.sendMessage(parseConverted(combined));
     }
 

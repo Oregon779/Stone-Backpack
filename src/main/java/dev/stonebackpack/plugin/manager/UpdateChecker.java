@@ -58,6 +58,11 @@ public class UpdateChecker implements Listener {
         }
     }
 
+    public void shutdown() {
+        stop();
+        httpClient.shutdownNow();
+    }
+
     public void checkNow(Runnable onDone) {
         Bukkit.getAsyncScheduler().runNow(plugin, scheduled -> {
             check();
@@ -97,10 +102,8 @@ public class UpdateChecker implements Listener {
                 versionsBehind = countVersionsBehind(versions, current);
                 plugin.getLogger().info("Update checker: a new version is available: " + newest + " (you're on "
                         + current + ", " + behindText() + " behind). Get it at " + MODRINTH_PROJECT_URL);
-                // Safe to call directly from this async thread: every path
-                // inside dispatches its own per-player Bukkit API access
-                // through that player's own scheduler - see notifyPlayer.
-                notifyOnlineEligiblePlayers(newest, current);
+                // Permission checks aren't thread-safe, so the loop runs on the server thread.
+                Bukkit.getGlobalRegionScheduler().execute(plugin, () -> notifyOnlineEligiblePlayers(newest, current));
             } else {
                 latestKnownVersion = null;
                 versionsBehind = -1;
@@ -142,16 +145,10 @@ public class UpdateChecker implements Listener {
         return player.isOp() || player.hasPermission("stonebackpack.admin");
     }
 
-    /**
-     * Each notification is dispatched through that specific player's own
-     * scheduler rather than assuming a single global main thread - required
-     * for correctness on Folia (players can live on different region
-     * threads) and a same-thread no-op on regular Paper.
-     */
     private void notifyOnlineEligiblePlayers(String newest, String current) {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (isEligible(player)) {
-                player.getScheduler().run(plugin, task -> notifyPlayer(player, newest, current), null);
+                notifyPlayer(player, newest, current);
             }
         }
     }

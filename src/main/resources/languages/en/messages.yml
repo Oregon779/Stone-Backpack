@@ -6,6 +6,7 @@ general:
   player-not-found: "&c✖ Player &f{player} &cnot found."
   reload-success: "&a✔ Configuration and messages have been reloaded."
   world-blocked: "&c✖ This feature is disabled in this world."
+  load-failed: "&c✖ This backpack could not be loaded. Please report this to an admin."
 
 backpack:
   cooldown: "&c⏱ Please wait &b{seconds}s &cbefore using this again."
