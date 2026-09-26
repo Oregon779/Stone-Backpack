@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class BackpackManager {
@@ -181,7 +182,45 @@ public class BackpackManager {
         Inventory inventory = openInventories.get(ownerId);
         if (inventory != null && inventory.getViewers().isEmpty()) {
             openInventories.remove(ownerId);
+            plugin.getBackupManager().rememberUnloaded(ownerId, deepCopy(inventory));
         }
+    }
+
+    /**
+     * Same per-owner thread dispatch as saveAll(), but hands {@code sink} a
+     * deep copy: getContents() returns live mirrors of the slot items, which
+     * must not be read from the async pool while the owner keeps editing.
+     * Returns the owners that were dispatched.
+     */
+    public Set<UUID> snapshotLoaded(BiConsumer<UUID, DataManager.BackpackData> sink) {
+        Set<UUID> owners = Set.copyOf(openInventories.keySet());
+        for (UUID ownerId : owners) {
+            Player online = Bukkit.getPlayer(ownerId);
+            if (online != null) {
+                online.getScheduler().run(plugin, task -> copyAndDispatch(ownerId, sink), null);
+            } else {
+                copyAndDispatch(ownerId, sink);
+            }
+        }
+        return owners;
+    }
+
+    private void copyAndDispatch(UUID ownerId, BiConsumer<UUID, DataManager.BackpackData> sink) {
+        Inventory inventory = openInventories.get(ownerId);
+        if (inventory == null) {
+            return;
+        }
+        DataManager.BackpackData copy = deepCopy(inventory);
+        Bukkit.getAsyncScheduler().runNow(plugin, task -> sink.accept(ownerId, copy));
+    }
+
+    private static DataManager.BackpackData deepCopy(Inventory inventory) {
+        ItemStack[] contents = inventory.getContents();
+        ItemStack[] copy = new ItemStack[contents.length];
+        for (int i = 0; i < contents.length; i++) {
+            copy[i] = contents[i] == null ? null : contents[i].clone();
+        }
+        return new DataManager.BackpackData(inventory.getSize() / 9, copy);
     }
 
     /**

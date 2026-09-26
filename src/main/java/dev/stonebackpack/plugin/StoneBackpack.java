@@ -8,6 +8,7 @@ import dev.stonebackpack.plugin.listener.BackpackItemListener;
 import dev.stonebackpack.plugin.listener.PlayerJoinListener;
 import dev.stonebackpack.plugin.listener.PlayerQuitListener;
 import dev.stonebackpack.plugin.manager.BackpackManager;
+import dev.stonebackpack.plugin.manager.BackupManager;
 import dev.stonebackpack.plugin.manager.ConfigManager;
 import dev.stonebackpack.plugin.manager.CooldownManager;
 import dev.stonebackpack.plugin.manager.DataManager;
@@ -15,6 +16,7 @@ import dev.stonebackpack.plugin.manager.ItemManager;
 import dev.stonebackpack.plugin.manager.MessageManager;
 import dev.stonebackpack.plugin.manager.UpdateChecker;
 import dev.stonebackpack.plugin.manager.WorldRestrictionManager;
+import dev.stonebackpack.plugin.menu.BackupMenu;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -29,6 +31,8 @@ public final class StoneBackpack extends JavaPlugin {
     private WorldRestrictionManager worldRestrictionManager;
     private ItemManager itemManager;
     private BackpackManager backpackManager;
+    private BackupManager backupManager;
+    private BackupMenu backupMenu;
     private UpdateChecker updateChecker;
     private ScheduledTask autosaveTask;
 
@@ -46,6 +50,8 @@ public final class StoneBackpack extends JavaPlugin {
         worldRestrictionManager = new WorldRestrictionManager(configManager);
         itemManager = new ItemManager(this);
         backpackManager = new BackpackManager(this);
+        backupManager = new BackupManager(this);
+        backupMenu = new BackupMenu(this);
 
         // Warms the O(1) player-name lookup cache off the main thread at
         // startup instead of letting the first /backpack <name>,
@@ -60,8 +66,10 @@ public final class StoneBackpack extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new PlayerQuitListener(this), this);
         Bukkit.getPluginManager().registerEvents(new BackpackItemListener(this), this);
         Bukkit.getPluginManager().registerEvents(new BackpackInventoryListener(this), this);
+        Bukkit.getPluginManager().registerEvents(backupMenu, this);
 
         startAutosaveTask();
+        backupManager.start();
         updateChecker = new UpdateChecker(this);
         Bukkit.getPluginManager().registerEvents(updateChecker, this);
         updateChecker.start();
@@ -77,6 +85,9 @@ public final class StoneBackpack extends JavaPlugin {
         if (autosaveTask != null) {
             autosaveTask.cancel();
         }
+        if (backupManager != null) {
+            backupManager.stop();
+        }
         if (backpackManager != null) {
             // Blocking on purpose: once onDisable() has started, newly
             // scheduled async/region tasks are not guaranteed to run, so
@@ -91,6 +102,7 @@ public final class StoneBackpack extends JavaPlugin {
         configManager.reload();
         messageManager.reload(configManager.getLanguage());
         startAutosaveTask();
+        backupManager.start();
         updateChecker.start();
     }
 
@@ -150,6 +162,14 @@ public final class StoneBackpack extends JavaPlugin {
 
     public BackpackManager getBackpackManager() {
         return backpackManager;
+    }
+
+    public BackupManager getBackupManager() {
+        return backupManager;
+    }
+
+    public BackupMenu getBackupMenu() {
+        return backupMenu;
     }
 
     public UpdateChecker getUpdateChecker() {

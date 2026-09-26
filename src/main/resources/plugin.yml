@@ -16,12 +16,12 @@ commands:
 
   stonebackpack:
     description: Main StoneBackpack command for giving items, inspecting backpacks, reloading the plugin and viewing help.
-    usage: /stonebackpack <reload|give|inspect|help|checkupdate>
+    usage: /stonebackpack <reload|give|inspect|backups|help|checkupdate>
     aliases: [sbp, sb]
 
 permissions:
   stonebackpack.admin:
-    description: Access to all StoneBackpack admin actions (opening/inspecting other players' backpacks, giving backpack items, reload, checkupdate, update notifications).
+    description: Access to all StoneBackpack admin actions (opening/inspecting other players' backpacks, giving backpack items, the backup menu, reload, checkupdate, update notifications).
     default: op
 
   stonebackpack.use:

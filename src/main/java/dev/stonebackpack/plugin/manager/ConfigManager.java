@@ -228,6 +228,14 @@ public class ConfigManager {
         return config.getBoolean("data.save-on-quit", true);
     }
 
+    public boolean isBackupsEnabled() {
+        return config.getBoolean("backups.enabled", true);
+    }
+
+    public int getBackupIntervalSeconds() {
+        return Math.max(10, config.getInt("backups.interval-seconds", 60));
+    }
+
     public boolean isUpdateCheckerEnabled() {
         return config.getBoolean("update-checker.enabled", true);
     }

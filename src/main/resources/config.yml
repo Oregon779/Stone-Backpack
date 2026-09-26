@@ -41,6 +41,10 @@ data:
   save-on-close: true
   save-on-quit: true
 
+backups:
+  enabled: true
+  interval-seconds: 60
+
 update-checker:
   enabled: true
   check-interval-minutes: 60

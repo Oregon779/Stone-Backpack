@@ -17,19 +17,28 @@ public class DataManager {
     public record BackpackData(int rows, ItemStack[] contents) {
     }
 
+    public record Backup(long timestamp, BackpackData data) {
+    }
+
     private final Plugin plugin;
     private final File playerDataFolder;
+    private final File backupFolder;
 
     private final ConcurrentHashMap<UUID, Object> saveLocks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Object> backupLocks = new ConcurrentHashMap<>();
 
     public DataManager(Plugin plugin) {
         this.plugin = plugin;
         this.playerDataFolder = new File(plugin.getDataFolder(), "playerdata");
+        this.backupFolder = new File(plugin.getDataFolder(), "backups");
     }
 
     public void init() {
         if (!playerDataFolder.exists() && playerDataFolder.mkdirs()) {
             plugin.getLogger().info("Created playerdata folder.");
+        }
+        if (!backupFolder.exists() && backupFolder.mkdirs()) {
+            plugin.getLogger().info("Created backups folder.");
         }
     }
 
@@ -52,7 +61,10 @@ public class DataManager {
         if (!file.exists()) {
             return null;
         }
-        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+        return readContents(YamlConfiguration.loadConfiguration(file));
+    }
+
+    private BackpackData readContents(YamlConfiguration yaml) {
         int rows = Math.max(1, Math.min(6, yaml.getInt("rows", 3)));
         List<?> rawItems = yaml.getList("items");
         ItemStack[] contents = new ItemStack[rows * 9];
@@ -88,6 +100,38 @@ public class DataManager {
                 plugin.getLogger().warning("Could not save backpack for " + playerId + ": " + exception.getMessage());
             }
         }
+    }
+
+    private File backupFileFor(UUID playerId) {
+        return new File(backupFolder, playerId + ".yml");
+    }
+
+    public void saveBackup(UUID playerId, BackpackData data) {
+        Object lock = backupLocks.computeIfAbsent(playerId, id -> new Object());
+        synchronized (lock) {
+            YamlConfiguration yaml = new YamlConfiguration();
+            yaml.set("timestamp", System.currentTimeMillis());
+            yaml.set("rows", data.rows());
+            yaml.set("items", Arrays.asList(data.contents()));
+            try {
+                yaml.save(backupFileFor(playerId));
+            } catch (IOException exception) {
+                plugin.getLogger().warning("Could not save backpack backup for " + playerId + ": " + exception.getMessage());
+            }
+        }
+    }
+
+    public void loadBackupAsync(UUID playerId, Consumer<Backup> callback) {
+        Bukkit.getAsyncScheduler().runNow(plugin, task -> callback.accept(loadBackup(playerId)));
+    }
+
+    private Backup loadBackup(UUID playerId) {
+        File file = backupFileFor(playerId);
+        if (!file.exists()) {
+            return null;
+        }
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+        return new Backup(yaml.getLong("timestamp", file.lastModified()), readContents(yaml));
     }
 }
 
