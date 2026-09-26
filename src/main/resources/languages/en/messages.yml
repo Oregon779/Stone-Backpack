@@ -16,7 +16,7 @@ backpack:
   gave-item: "&a✔ You gave a backpack to &b{player}&a."
 
 backups:
-  no-backup: "&c✖ There is no backup for &f{player} &cyet."
+  none-yet: "&c✖ There is no backup for &f{player} &cyet. Either the backpack has never been used, or the first backup is still pending (every {interval}s)."
   empty: "&e⚠ The backup of &f{player} &eis empty, there is nothing to copy."
   copied: "&a✔ Copied the backup of &b{player} &a(&b{stacks} &aitem stacks). The shulker box(es) are in your inventory."
   shulker-name: "&6Backup: &f{player} &7({index}/{total})"

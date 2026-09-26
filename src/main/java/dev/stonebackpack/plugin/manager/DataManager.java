@@ -121,6 +121,18 @@ public class DataManager {
         }
     }
 
+    // Reads under the save lock so a save being written at the same moment
+    // can't be picked up half-finished.
+    public void backupSavedData(UUID playerId) {
+        BackpackData data;
+        synchronized (saveLocks.computeIfAbsent(playerId, id -> new Object())) {
+            data = load(playerId);
+        }
+        if (data != null) {
+            saveBackup(playerId, data);
+        }
+    }
+
     public void loadBackupAsync(UUID playerId, Consumer<Backup> callback) {
         Bukkit.getAsyncScheduler().runNow(plugin, task -> callback.accept(loadBackup(playerId)));
     }

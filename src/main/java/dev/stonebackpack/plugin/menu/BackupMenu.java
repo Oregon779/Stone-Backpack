@@ -157,7 +157,8 @@ public class BackupMenu implements Listener {
                     return;
                 }
                 if (backup == null) {
-                    plugin.getMessageManager().send(admin, "backups.no-backup", Map.of("player", target.name()));
+                    plugin.getMessageManager().send(admin, "backups.none-yet", Map.of("player", target.name(),
+                            "interval", String.valueOf(plugin.getConfigManager().getBackupIntervalSeconds())));
                 } else {
                     openBackup(admin, target, backup, holder.getPage(), 0);
                 }

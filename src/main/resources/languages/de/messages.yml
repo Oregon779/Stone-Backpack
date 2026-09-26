@@ -16,7 +16,7 @@ backpack:
   gave-item: "&a✔ Du hast &b{player} &aeinen Rucksack gegeben."
 
 backups:
-  no-backup: "&c✖ Für &f{player} &cexistiert noch kein Backup."
+  none-yet: "&c✖ Für &f{player} &cgibt es noch kein Backup. Entweder wurde der Rucksack noch nie benutzt oder die erste Sicherung steht noch aus (alle {interval}s)."
   empty: "&e⚠ Das Backup von &f{player} &eist leer, es gibt nichts zu kopieren."
   copied: "&a✔ Backup von &b{player} &akopiert (&b{stacks} &aItem-Stacks). Die Shulker-Box(en) liegen in deinem Inventar."
   shulker-name: "&6Backup: &f{player} &7({index}/{total})"
