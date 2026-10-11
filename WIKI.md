@@ -60,7 +60,7 @@ The console prints these lines on startup, for example:
 
 ```
 Backups: saving every online player's backpack every 60s to backups/.
-StoneBackpack v1.0.0 enabled (language: en).
+StoneBackpack v1.5.0 enabled (language: en).
 ```
 
 **Quick start**
@@ -89,6 +89,12 @@ Updating is a file swap:
 Your settings and all backpacks are kept. On startup, StoneBackpack checks `config.yml` and the `messages.yml` of the selected language for options that were added in the new version and adds only those. Existing values are never changed.
 
 When options are added, the file is rewritten in the default layout: your values stay, but **your own comments and options the plugin doesn't know are removed**. Keep notes outside these files.
+
+Things worth knowing when coming from older versions:
+
+- **1.5.0** requires **Paper 26.2 and Java 25** - servers on older versions should stay on 1.4.3. It adds [backups](#backups-and-restoring-items); the new options and texts are added automatically. Own translations need the new `backups.*` and `general.load-failed` texts copied from `languages/en/messages.yml`.
+
+See `CHANGELOG.md` for the version history.
 
 ---
 
@@ -349,7 +355,7 @@ StoneBackpack checks [Modrinth](https://modrinth.com/project/stone-backpack) for
 
 Console messages:
 
-- Update found: `Update checker: a new version is available: 1.1.0 (you're on 1.0.0, 1 version(s) behind). Get it at https://modrinth.com/project/stone-backpack`
+- Update found: `Update checker: a new version is available: 1.6.0 (you're on 1.5.0, 1 version(s) behind). Get it at https://modrinth.com/project/stone-backpack`
 - No update: `Update checker: no new version available.`
 - Modrinth not reachable: `Update checker: Modrinth responded with status 404 for project 'stone-backpack'.` or `Update checker: check failed (...)`
 
