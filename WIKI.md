@@ -14,17 +14,18 @@ Personal backpacks with permission-based sizes for Paper servers, by **Stone Plu
 4. [Commands](#commands)
 5. [Permissions](#permissions)
 6. [Backpack Sizes](#backpack-sizes)
-7. [The Backpack Item](#the-backpack-item)
-8. [Blocked Items](#blocked-items)
-9. [Backups and Restoring Items](#backups-and-restoring-items)
-10. [World Restrictions](#world-restrictions)
-11. [Configuration Reference](#configuration-reference)
-12. [Messages and Languages](#messages-and-languages)
-13. [Data Storage and Safety](#data-storage-and-safety)
-14. [Update Checker](#update-checker)
-15. [Performance Tips for Large Servers](#performance-tips-for-large-servers)
-16. [FAQ and Troubleshooting](#faq-and-troubleshooting)
-17. [Building from Source](#building-from-source)
+7. [Backpack Pages](#backpack-pages)
+8. [The Backpack Item](#the-backpack-item)
+9. [Blocked Items](#blocked-items)
+10. [Backups and Restoring Items](#backups-and-restoring-items)
+11. [World Restrictions](#world-restrictions)
+12. [Configuration Reference](#configuration-reference)
+13. [Messages and Languages](#messages-and-languages)
+14. [Data Storage and Safety](#data-storage-and-safety)
+15. [Update Checker](#update-checker)
+16. [Performance Tips for Large Servers](#performance-tips-for-large-servers)
+17. [FAQ and Troubleshooting](#faq-and-troubleshooting)
+18. [Building from Source](#building-from-source)
 
 ---
 
@@ -34,6 +35,7 @@ StoneBackpack gives every player a personal backpack that is saved permanently. 
 
 - open your own backpack with `/backpack` (or `/bp`, `/rucksack`)
 - give players **1 to 6 rows** (9 to 54 slots) through **permissions** - the backpack grows automatically when a player gets a bigger size
+- give players **up to 10 pages**, also through permissions, with arrow buttons to switch between them
 - hand out a **physical backpack item** that opens the backpack with a right-click
 - block items that must not go into a backpack - by default all **shulker boxes**, and always the backpack item itself
 - let admins **open, inspect and edit** the backpack of any player, online or offline
@@ -69,6 +71,8 @@ StoneBackpack v1.5.0 enabled (language: en).
 /backpack                          open your own backpack (3 rows by default)
 /lp group vip permission set stonebackpack.size.6 true
                                    VIPs get the biggest backpack (6 rows)
+/lp group vip permission set stonebackpack.pages.3 true
+                                   ... with 3 pages
 /stonebackpack backups             see the latest backup of every online player
 /stonebackpack reload              after editing config.yml or messages.yml
 ```
@@ -91,7 +95,7 @@ Your settings and all backpacks are kept. On every start and `/stonebackpack rel
 - New options are inserted **at the same place as in the default file, together with their explanation comments**, using your file's indentation.
 - Everything else stays exactly as it is: your values, **your own comments**, blank lines, the order of options and options the plugin doesn't know.
 - Before a file is changed, the previous version is saved next to it as `config.yml.bak` (or `messages.yml.bak`). Files are written safely, so a crash can't leave a half-written config behind.
-- Entries you removed from `backpack.size-permissions` stay removed.
+- Entries you removed from `backpack.size-permissions` or `backpack.page-permissions` stay removed.
 - A file with a YAML syntax error is **not touched**. The console names the line; until you fix it, options that can't be read use their default values.
 - The console lists every added option, for example: `Added 2 new option(s) to config.yml: backups, config-version. Existing settings were kept.`
 
@@ -99,7 +103,8 @@ Your settings and all backpacks are kept. On every start and `/stonebackpack rel
 
 Things worth knowing when coming from older versions:
 
-- **1.5.0** requires **Paper 26.2 and Java 25** - servers on older versions should stay on 1.4.3. It adds [backups](#backups-and-restoring-items); the new options and texts are added automatically. Own translations need the new `backups.*` and `general.load-failed` texts copied from `languages/en/messages.yml`.
+- **1.5.0** requires **Paper 26.2 and Java 25** - servers on older versions should stay on 1.4.3. It adds [backups](#backups-and-restoring-items) and [pages](#backpack-pages); the new options and texts are added automatically. Existing backpacks become page 1 with every item where it was. When a player gets a second page, the item in the bottom right slot moves to page 2 to make room for the button.
+- Going back from 1.5.0 to an older version: older versions only read page 1, and the next save there deletes the other pages. Have players empty pages 2 and higher first.
 
 See `CHANGELOG.md` for the version history.
 
@@ -161,12 +166,14 @@ Aliases: `/bp`, `/rucksack`
 | `stonebackpack.bypass.cooldown` | Skip the `/backpack` cooldown | OP |
 | `stonebackpack.bypass.blocklist` | Put [blocked items](#blocked-items) into a backpack anyway | OP |
 | `stonebackpack.size.1` ... `stonebackpack.size.6` | Backpack with 1 to 6 rows (9 to 54 slots) - see [Backpack Sizes](#backpack-sizes) | nobody |
+| `stonebackpack.pages.2` ... `stonebackpack.pages.10` | Backpack with 2 to 10 pages - see [Backpack Pages](#backpack-pages) | nobody |
 
 Examples with LuckPerms:
 
 ```
 /lp group default permission set stonebackpack.size.2 true      everyone gets 2 rows
 /lp group vip permission set stonebackpack.size.6 true          VIPs get 6 rows
+/lp group vip permission set stonebackpack.pages.3 true         ... on 3 pages
 /lp group mod permission set stonebackpack.others true          moderators can open other backpacks
 /lp group default permission set stonebackpack.use false        disable backpacks for normal players
 ```
@@ -189,6 +196,22 @@ backpack:
     4: rank.vip
     6: rank.mvp
 ```
+
+---
+
+## Backpack Pages
+
+- Each page permission unlocks a number of pages: `stonebackpack.pages.2` = 2 pages up to `stonebackpack.pages.10` = 10 pages. If a player has several, the **biggest** one counts.
+- Without any page permission, a player gets `backpack.default-pages` (default **1 page**, so nothing changes until you hand out page permissions).
+- All pages have the same number of rows, set by the [size permissions](#backpack-sizes).
+- **Switching pages:** the **bottom right** slot of a page is an arrow to the **next** page, the **bottom left** slot an arrow back to the **previous** one. The first page has no back arrow, the last page no next arrow. The title shows the page, e.g. `(2/3)` (`backpack.page-title`).
+- An item held on the cursor comes along to the other page, so items can be moved between pages directly.
+- The arrows can't be taken, moved or covered, also not by admins. They are never saved and never end up in backups.
+- **No items are lost through the arrows:** when a page gets an arrow in a slot that holds an item (for example the bottom right slot of an existing backpack when the player gets a second page), that item moves to the first free slot on the next page.
+- New pages are added the next time the player opens the backpack while online.
+- If a player loses a page permission, pages that still hold items stay until they are emptied. Empty pages above the permission disappear the next time the backpack is loaded (after the player was offline).
+- Admins opening another player's backpack can switch through all of its pages the same way.
+- The permission names can be changed under `backpack.page-permissions` in `config.yml`, just like the size permissions.
 
 ---
 
@@ -238,8 +261,8 @@ StoneBackpack keeps a backup of every backpack, so admins can give players their
 **Restoring items**
 
 1. Run `/stonebackpack backups`. A menu lists all **online players** (45 per page, sorted by name).
-2. Click a player's head to see their latest backup. You can only look - items can't be taken out. The clock at the bottom shows when the backup was made and how many slots are used. Backpacks with 6 rows have a second page.
-3. Click **Copy as shulker box**. The whole content is put into your inventory in shulker boxes (27 items each, so up to two boxes). If your inventory is full, the rest is dropped at your feet.
+2. Click a player's head to see their latest backup. You can only look - items can't be taken out. The clock at the bottom shows when the backup was made and how many slots are used. The backup holds all pages of the backpack; big backpacks are spread over several menu pages.
+3. Click **Copy as shulker box**. The whole content of all pages is put into your inventory in shulker boxes (27 items each). If your inventory is full, the rest is dropped at your feet.
 4. Give the shulker box(es) to the player.
 
 Good to know:
@@ -273,7 +296,7 @@ World names are not case-sensitive. The restriction applies to `/backpack` (also
 
 ## Configuration Reference
 
-All files are in `plugins/StoneBackpack/`. After changes, run `/stonebackpack reload`. Invalid values fall back to their defaults; misspelled item, sound, row and world-mode names are also reported in the console.
+All files are in `plugins/StoneBackpack/`. After changes, run `/stonebackpack reload`. Invalid values fall back to their defaults; misspelled item, sound, row, page and world-mode names are also reported in the console.
 
 **`config.yml`**
 
@@ -283,6 +306,10 @@ All files are in `plugins/StoneBackpack/`. After changes, run `/stonebackpack re
 | `backpack.title` | `&8&l» &7{player}'s Backpack &8&l«` | Title of the backpack window, `{player}` = owner |
 | `backpack.default-rows` | `3` | Rows for players without a size permission (1-6) |
 | `backpack.size-permissions` | `1` to `6` → `stonebackpack.size.1` to `.6` | Which permission unlocks how many rows |
+| `backpack.default-pages` | `1` | Pages for players without a page permission (1-10) |
+| `backpack.page-permissions` | `2` to `10` → `stonebackpack.pages.2` to `.10` | Which permission unlocks how many pages |
+| `backpack.page-title` | ` &8(&7{page}&8/&7{pages}&8)` | Added to the title of backpacks with more than one page, `{page}` = open page, `{pages}` = number of pages |
+| `backpack.page-button-material` | `ARROW` | Item of the two page buttons |
 | `backpack.blocked-items` | all shulker boxes | Items that can't be stored - see [Blocked Items](#blocked-items) |
 | `backpack.item.enabled` | `false` | Must be `true` for the automatic item on first join |
 | `backpack.item.material` | `BUNDLE` | Material of newly created backpack items |
@@ -291,7 +318,8 @@ All files are in `plugins/StoneBackpack/`. After changes, run `/stonebackpack re
 | `backpack.item.custom-model-data` | `0` | Custom model data for resource packs, `0` = none |
 | `backpack.item.give-on-first-join` | `false` | Give new players the item once (needs `item.enabled: true`) |
 | `backpack.sounds.open` / `close` | `BLOCK_ENDER_CHEST_OPEN` / `BLOCK_ENDER_CHEST_CLOSE` | Sounds when opening and closing, heard only by that player |
-| `backpack.sounds.volume` / `pitch` | `1.0` / `1.0` | Volume and pitch of both sounds |
+| `backpack.sounds.page` | `ITEM_BOOK_PAGE_TURN` | Sound when switching to another page |
+| `backpack.sounds.volume` / `pitch` | `1.0` / `1.0` | Volume and pitch of all three sounds |
 | `command.cooldown-seconds` | `2` | Cooldown between `/backpack` uses, `0` = none |
 | `worlds.mode` | `NONE` | `NONE`, `WHITELIST` or `BLACKLIST` - see [World Restrictions](#world-restrictions) |
 | `worlds.list` | `[]` | World names for `WHITELIST` / `BLACKLIST` |
@@ -330,7 +358,7 @@ Leave `data.save-on-close` and `data.save-on-quit` on unless you have a reason. 
 | `{interval}` | `backups.none-yet` |
 | `{stacks}` | `backups.copied` |
 | `{index}` `{total}` | `backups.shulker-name` |
-| `{page}` `{pages}` | `backups.gui.players-title`, `backups.gui.backup-title` |
+| `{page}` `{pages}` | `backpack.next-page`, `backpack.previous-page` (the page the button leads to), `backups.gui.players-title`, `backups.gui.backup-title`, and `backpack.page-title` in `config.yml` |
 | `{time}` `{age}` | `backups.gui.info-time`, `backups.gui.info-age` |
 | `{used}` `{slots}` | `backups.gui.info-slots` |
 | `{version}` `{current}` `{behind}` | `update.available` |
@@ -342,7 +370,7 @@ Leave `data.save-on-close` and `data.save-on-quit` on unless you have a reason. 
 
 ## Data Storage and Safety
 
-Every backpack is stored in `playerdata/<uuid>.yml`, the backups in `backups/<uuid>.yml`. Don't edit these files while the server is running - a backpack that is loaded (its owner is online) would overwrite your edit.
+Every backpack is stored in `playerdata/<uuid>.yml`, the backups in `backups/<uuid>.yml`. `rows` and `pages` hold the size, `items` all pages one after another (page 1 first). Don't edit these files while the server is running - a backpack that is loaded (its owner is online) would overwrite your edit.
 
 - Backpacks are saved when they are closed, when the owner leaves and every `data.autosave-interval-minutes`. All disk work runs in the background, never on the main thread.
 - A backpack stays in memory while its owner is online, so opening it again is instant. Backpacks of offline players are removed from memory as soon as nobody has them open (at the latest with the next autosave).
@@ -390,6 +418,12 @@ No. Backpacks are untouched, and new versions only add missing options. See [Upd
 **How do I give players a bigger backpack?**
 Give them `stonebackpack.size.<rows>`, e.g. `stonebackpack.size.6` for 54 slots. See [Backpack Sizes](#backpack-sizes).
 
+**How do I give players more pages?**
+Give them `stonebackpack.pages.<pages>`, e.g. `stonebackpack.pages.5` for 5 pages. See [Backpack Pages](#backpack-pages).
+
+**I removed a page permission, but the player still has the pages.**
+Pages that still hold items are kept so nothing gets lost. Once they are empty, they disappear the next time the backpack is loaded.
+
 **I removed a size permission, but the player still has the big backpack.**
 Backpacks never shrink, so no items get lost. To make one smaller, empty it first, stop the server and set `rows` in the player's file in `playerdata/`.
 
@@ -417,7 +451,7 @@ Both `backpack.item.enabled` and `backpack.item.give-on-first-join` must be `tru
 **Why can a player not open their backpack in some worlds?**
 [World Restrictions](#world-restrictions) are active (`worlds.mode`). The message is "This feature is disabled in this world."
 
-**The console says "Unknown material", "Unknown sound" or "Invalid row count".**
+**The console says "Unknown material", "Unknown item", "Unknown sound", "Invalid row count" or "Invalid page count".**
 A name in `config.yml` is misspelled. The default is used until you fix it.
 
 **The console says a backpack file "was corrupt and has been moved".**

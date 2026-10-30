@@ -10,14 +10,17 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class ItemManager {
     private final StoneBackpack plugin;
     private final NamespacedKey backpackItemKey;
+    private final NamespacedKey pageButtonKey;
 
     public ItemManager(StoneBackpack plugin) {
         this.plugin = plugin;
         this.backpackItemKey = new NamespacedKey(plugin, "backpack_item");
+        this.pageButtonKey = new NamespacedKey(plugin, "page_button");
     }
 
     public NamespacedKey getBackpackItemKey() {
@@ -57,6 +60,25 @@ public class ItemManager {
         }
         Boolean tag = item.getPersistentDataContainer().get(backpackItemKey, PersistentDataType.BOOLEAN);
         return Boolean.TRUE.equals(tag);
+    }
+
+    /** {@code namePath} is the message for the button, {@code targetPage} is 1-based. */
+    public ItemStack createPageButton(String namePath, int targetPage, int pageCount) {
+        ItemStack button = ItemStack.of(plugin.getConfigManager().getPageButtonMaterial());
+        Component name = plugin.getMessageManager().component(namePath, Map.of(
+                "page", String.valueOf(targetPage), "pages", String.valueOf(pageCount)));
+        button.editMeta(meta -> {
+            meta.displayName(name.decoration(TextDecoration.ITALIC, false));
+            meta.getPersistentDataContainer().set(pageButtonKey, PersistentDataType.BOOLEAN, true);
+        });
+        return button;
+    }
+
+    public boolean isPageButton(ItemStack item) {
+        if (item == null || item.isEmpty()) {
+            return false;
+        }
+        return Boolean.TRUE.equals(item.getPersistentDataContainer().get(pageButtonKey, PersistentDataType.BOOLEAN));
     }
 
     public void give(org.bukkit.entity.Player player, ItemStack item) {

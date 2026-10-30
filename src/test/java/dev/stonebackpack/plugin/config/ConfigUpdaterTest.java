@@ -464,9 +464,10 @@ class ConfigUpdaterTest {
         YamlConfiguration before = YamlConfiguration.loadConfiguration(path.toFile());
 
         ConfigUpdater.Result result = update(bundled, path, new ConfigUpdater.Options(
-                "config-version", ConfigMigrations.CONFIG, Set.of("backpack.size-permissions")));
+                "config-version", ConfigMigrations.CONFIG, Set.of("backpack.size-permissions", "backpack.page-permissions")));
 
-        assertEquals(List.of("backups", "config-version"), result.addedPaths());
+        assertEquals(List.of("backpack.default-pages", "backpack.page-permissions", "backpack.page-title",
+                "backpack.page-button-material", "backpack.sounds.page", "backups", "config-version"), result.addedPaths());
         YamlConfiguration after = YamlConfiguration.loadConfiguration(path.toFile());
         for (String key : before.getKeys(true)) {
             if (!before.isConfigurationSection(key)) {
@@ -479,6 +480,9 @@ class ConfigUpdaterTest {
         assertEquals(1, after.getInt("config-version"));
         String text = read(path);
         assertTrue(text.contains("# Regular backups of every online player's backpack"), text);
+        assertEquals(9, after.getConfigurationSection("backpack.page-permissions").getKeys(false).size());
+        assertTrue(text.contains("    6: rank.vip\n\n  # Pages (1-10) for players without a page permission.\n  default-pages: 1\n"), text);
+        assertTrue(text.contains("    close: BLOCK_CHEST_CLOSE\n    page: ITEM_BOOK_PAGE_TURN\n    volume: 0.5\n"), text);
         assertTrue(text.contains("  title: \"&6Rucksack von {player}\"\n"), text);
         assertTrue(text.contains("  blocked-items: [\"SHULKER_BOX\", \"TNT\"]\n"), text);
     }

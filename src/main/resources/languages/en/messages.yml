@@ -15,6 +15,8 @@ backpack:
   item-blocked: "&c✖ This item cannot be stored inside a backpack."
   received-item: "&a✔ You received a backpack. Right-click it to open your storage."
   gave-item: "&a✔ You gave a backpack to &b{player}&a."
+  next-page: "&aNext page &7({page}/{pages}) &8»"
+  previous-page: "&8« &aPrevious page &7({page}/{pages})"
 
 backups:
   none-yet: "&c✖ There is no backup for &f{player} &cyet. Either the backpack has never been used, or the first backup is still pending (every {interval}s)."

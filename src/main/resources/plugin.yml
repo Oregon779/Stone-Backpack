@@ -1,9 +1,9 @@
 name: StoneBackpack
-version: '1.5.0-dev1'
+version: '1.5.0-dev2'
 main: dev.stonebackpack.plugin.StoneBackpack
 api-version: '26.2'
 author: Stone Plugins
-description: Adds personal backpacks with permission-based sizes, a physical backpack item, and fully translatable messages.
+description: Adds personal backpacks with permission-based sizes and pages, a physical backpack item, and fully translatable messages.
 folia-supported: false
 
 commands:
@@ -64,3 +64,39 @@ permissions:
     description: Grants a 6-row (54 slot) backpack.
     default: false
 
+
+  stonebackpack.pages.2:
+    description: Grants a backpack with 2 pages.
+    default: false
+
+  stonebackpack.pages.3:
+    description: Grants a backpack with 3 pages.
+    default: false
+
+  stonebackpack.pages.4:
+    description: Grants a backpack with 4 pages.
+    default: false
+
+  stonebackpack.pages.5:
+    description: Grants a backpack with 5 pages.
+    default: false
+
+  stonebackpack.pages.6:
+    description: Grants a backpack with 6 pages.
+    default: false
+
+  stonebackpack.pages.7:
+    description: Grants a backpack with 7 pages.
+    default: false
+
+  stonebackpack.pages.8:
+    description: Grants a backpack with 8 pages.
+    default: false
+
+  stonebackpack.pages.9:
+    description: Grants a backpack with 9 pages.
+    default: false
+
+  stonebackpack.pages.10:
+    description: Grants a backpack with 10 pages.
+    default: false

@@ -6,6 +6,12 @@ Versions before 1.5.0 are listed in the Modrinth version history.
 
 ## [Unreleased]
 
+### Added
+- **Backpack pages:** up to 10 pages per backpack, unlocked with the new permissions `stonebackpack.pages.2` to `stonebackpack.pages.10` (configurable under `backpack.page-permissions`, default for everyone `backpack.default-pages: 1`). The arrow in the bottom right slot opens the next page, the one in the bottom left slot goes back. The title shows the page (`backpack.page-title`), and an item on the cursor comes along to the other page.
+- No item is lost through the arrows: an item lying where an arrow appears, such as the bottom right slot of an existing backpack when a second page is unlocked, moves to the next page. Pages that still hold items stay when a page permission is removed.
+- Backups and the backup menu include all pages.
+- New options `backpack.default-pages`, `backpack.page-permissions`, `backpack.page-title`, `backpack.page-button-material` and `backpack.sounds.page`, and new texts `backpack.next-page` and `backpack.previous-page`. They are added to existing files automatically.
+
 ### Changed
 - **Config updates keep your file as it is:** new options are inserted into `config.yml` and `messages.yml` at the same place as in the default file, together with their explanation comments. Your values, comments, blank lines, option order and unknown options are no longer touched, and entries you removed from `backpack.size-permissions` stay removed.
 - The bundled `config.yml` now explains every option in comments, and has a `config-version` so future versions can carry renamed or moved options over automatically.

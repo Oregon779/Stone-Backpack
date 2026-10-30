@@ -7,13 +7,21 @@ import io.papermc.paper.datacomponent.item.BundleContents;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 public class BackpackInventoryListener implements Listener {
+    // A double click would also turn the page a second time.
+    private static final Set<ClickType> TURN_CLICKS = EnumSet.of(
+            ClickType.LEFT, ClickType.RIGHT, ClickType.SHIFT_LEFT, ClickType.SHIFT_RIGHT);
+
     private final StoneBackpack plugin;
 
     public BackpackInventoryListener(StoneBackpack plugin) {
@@ -25,17 +33,28 @@ public class BackpackInventoryListener implements Listener {
     // on the server.
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (!(event.getInventory().getHolder(false) instanceof BackpackHolder)) {
+        if (!(event.getInventory().getHolder(false) instanceof BackpackHolder holder)) {
             return;
         }
         if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        boolean clickedTop = event.getClickedInventory() != null && event.getClickedInventory().equals(event.getInventory());
+        if (clickedTop && holder.isButtonSlot(event.getSlot())) {
+            // Nothing can be taken from or put onto a page button, by anyone.
+            event.setCancelled(true);
+            if (TURN_CLICKS.contains(event.getClick())) {
+                boolean forward = holder.isNextButton(event.getSlot());
+                // Opening another inventory from inside InventoryClickEvent is
+                // unsafe, so the page turns on the player's next tick.
+                player.getScheduler().run(plugin, task -> plugin.getBackpackManager().turnPage(player, holder, forward), null);
+            }
             return;
         }
         if (player.hasPermission("stonebackpack.bypass.blocklist") || player.hasPermission("stonebackpack.admin")) {
             return;
         }
 
-        boolean clickedTop = event.getClickedInventory() != null && event.getClickedInventory().equals(event.getInventory());
         ItemStack incoming = incomingItem(event, clickedTop);
 
         if (isDisallowed(incoming)) {
@@ -64,17 +83,21 @@ public class BackpackInventoryListener implements Listener {
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (!(event.getInventory().getHolder(false) instanceof BackpackHolder)) {
+        if (!(event.getInventory().getHolder(false) instanceof BackpackHolder holder)) {
             return;
         }
         if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        int topSize = event.getInventory().getSize();
+        if (event.getRawSlots().stream().anyMatch(slot -> slot < topSize && holder.isButtonSlot(slot))) {
+            event.setCancelled(true);
             return;
         }
         if (player.hasPermission("stonebackpack.bypass.blocklist") || player.hasPermission("stonebackpack.admin")) {
             return;
         }
 
-        int topSize = event.getInventory().getSize();
         boolean touchesTop = event.getRawSlots().stream().anyMatch(slot -> slot < topSize);
         if (touchesTop && isDisallowed(event.getOldCursor())) {
             event.setCancelled(true);
@@ -88,6 +111,9 @@ public class BackpackInventoryListener implements Listener {
             return;
         }
         if (!(event.getPlayer() instanceof Player player)) {
+            return;
+        }
+        if (plugin.getBackpackManager().isTurningPage(player)) {
             return;
         }
         player.playSound(player.getLocation(), plugin.getConfigManager().getCloseSound(),

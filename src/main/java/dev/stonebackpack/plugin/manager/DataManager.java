@@ -1,5 +1,6 @@
 package dev.stonebackpack.plugin.manager;
 
+import dev.stonebackpack.plugin.model.BackpackLayout;
 import dev.stonebackpack.plugin.util.AtomicFiles;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -24,7 +25,12 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 
 public class DataManager {
-    public record BackpackData(int rows, ItemStack[] contents) {
+    /** {@code contents} holds all pages one after another, {@code rows * 9} slots each. */
+    public record BackpackData(int rows, int pages, ItemStack[] contents) {
+        public ItemStack[] page(int index) {
+            int size = rows * 9;
+            return Arrays.copyOfRange(contents, index * size, (index + 1) * size);
+        }
     }
 
     public record Backup(long timestamp, BackpackData data) {
@@ -112,19 +118,22 @@ public class DataManager {
         return readContents(yaml);
     }
 
+    // Files from before pages existed have no page count and hold one page.
+    // The page count never cuts off stored items, even when edited down.
     private BackpackData readContents(YamlConfiguration yaml) {
         int rows = Math.max(1, Math.min(6, yaml.getInt("rows", 3)));
+        int size = rows * 9;
         List<?> rawItems = yaml.getList("items");
-        ItemStack[] contents = new ItemStack[rows * 9];
-        if (rawItems != null) {
-            for (int i = 0; i < contents.length && i < rawItems.size(); i++) {
-                Object element = rawItems.get(i);
-                if (element instanceof ItemStack itemStack) {
-                    contents[i] = itemStack;
-                }
+        int stored = rawItems == null ? 0 : rawItems.size();
+        int declaredPages = Math.max(1, Math.min(BackpackLayout.MAX_PAGES, yaml.getInt("pages", 1)));
+        int pages = Math.max(declaredPages, (stored + size - 1) / size);
+        ItemStack[] contents = new ItemStack[pages * size];
+        for (int i = 0; i < stored; i++) {
+            if (rawItems.get(i) instanceof ItemStack itemStack) {
+                contents[i] = itemStack;
             }
         }
-        return new BackpackData(rows, contents);
+        return new BackpackData(rows, pages, contents);
     }
 
     /**
@@ -186,7 +195,9 @@ public class DataManager {
             if (timestamp != null) {
                 yaml.set("timestamp", timestamp);
             }
+            // Page 1 comes first in "items", where versions before pages read it.
             yaml.set("rows", data.rows());
+            yaml.set("pages", data.pages());
             yaml.set("items", Arrays.asList(data.contents()));
             AtomicFiles.write(target.toPath(), yaml.saveToString(), sync);
         } catch (Exception exception) {

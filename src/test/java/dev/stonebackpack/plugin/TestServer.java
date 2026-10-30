@@ -4,6 +4,7 @@ import io.papermc.paper.threadedregions.scheduler.AsyncScheduler;
 import io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import net.kyori.adventure.text.Component;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -12,6 +13,8 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.inventory.ChestInventoryMock;
 import org.mockbukkit.mockbukkit.inventory.InventoryMock;
 
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -21,6 +24,7 @@ import java.util.function.Consumer;
  * driven by performTicks(), and support cancel().
  */
 public class TestServer extends ServerMock {
+    private final Map<Inventory, Component> titles = new WeakHashMap<>();
     private final GlobalRegionScheduler globalScheduler = new GlobalRegionScheduler() {
         @Override
         public void execute(@NotNull Plugin plugin, @NotNull Runnable run) {
@@ -77,12 +81,19 @@ public class TestServer extends ServerMock {
     // plugin uses to avoid block-state snapshots.
     @Override
     public @NotNull InventoryMock createInventory(InventoryHolder owner, int size, @NotNull Component title) {
-        return new ChestInventoryMock(owner, size) {
+        InventoryMock inventory = new ChestInventoryMock(owner, size) {
             @Override
             public InventoryHolder getHolder(boolean useSnapshot) {
                 return getHolder();
             }
         };
+        titles.put(inventory, title);
+        return inventory;
+    }
+
+    // ChestInventoryMock has no title of its own.
+    public Component titleOf(Inventory inventory) {
+        return titles.get(inventory);
     }
 
     @Override

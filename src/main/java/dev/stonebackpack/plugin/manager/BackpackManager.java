@@ -2,10 +2,12 @@ package dev.stonebackpack.plugin.manager;
 
 import dev.stonebackpack.plugin.StoneBackpack;
 import dev.stonebackpack.plugin.model.BackpackHolder;
+import dev.stonebackpack.plugin.model.BackpackLayout;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.Sound;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -13,6 +15,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,18 +35,36 @@ public class BackpackManager {
 
     private final StoneBackpack plugin;
 
+    // One inventory per page, all with the same number of rows.
+    private record Backpack(int rows, List<Inventory> pages) {
+        boolean hasViewers() {
+            for (Inventory page : pages) {
+                if (!page.getViewers().isEmpty()) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        boolean isShowing(HumanEntity viewer) {
+            return pages.contains(viewer.getOpenInventory().getTopInventory());
+        }
+    }
+
     // Cached while the owner is online (or someone is viewing it), so repeat
     // opens in a session never touch the disk.
-    private final Map<UUID, Inventory> openInventories = new HashMap<>();
+    private final Map<UUID, Backpack> loaded = new HashMap<>();
 
     // Coalesces opens of the same not-yet-loaded backpack into one disk read,
     // so two viewers can never end up with two independent inventories whose
     // saves overwrite each other.
     private final Map<UUID, List<Player>> pendingLoads = new HashMap<>();
 
-    // Caches the legacy/hex-to-MiniMessage conversion of the title template.
-    private String titleTemplateRaw;
-    private String titleTemplateConverted;
+    // Viewers switching to another page: closing the old page is no real close.
+    private final Set<UUID> turningPage = new HashSet<>();
+
+    private final Template titleTemplate = new Template();
+    private final Template pageTitleTemplate = new Template();
 
     public BackpackManager(StoneBackpack plugin) {
         this.plugin = plugin;
@@ -58,11 +79,20 @@ public class BackpackManager {
         return plugin.getConfigManager().getDefaultRows();
     }
 
+    public int getAllowedPages(Player player) {
+        for (Map.Entry<String, Integer> entry : plugin.getConfigManager().getPagePermissions().entrySet()) {
+            if (player.hasPermission(entry.getKey())) {
+                return entry.getValue();
+            }
+        }
+        return plugin.getConfigManager().getDefaultPages();
+    }
+
     public void open(Player viewer, OfflinePlayer target) {
         UUID ownerId = target.getUniqueId();
         String ownerName = target.getName() != null ? target.getName() : "Player";
 
-        Inventory cached = openInventories.get(ownerId);
+        Backpack cached = loaded.get(ownerId);
         if (cached != null) {
             show(viewer, target, ownerId, ownerName, cached);
             return;
@@ -95,20 +125,26 @@ public class BackpackManager {
             return;
         }
 
+        // Pages beyond the owner's permission are only dropped while empty.
         int rows;
+        int pages;
         if (target instanceof Player onlineTarget && onlineTarget.isOnline()) {
             int allowed = getAllowedRows(onlineTarget);
             rows = stored != null ? Math.max(stored.rows(), allowed) : allowed;
+            pages = getAllowedPages(onlineTarget);
         } else {
             rows = stored != null ? stored.rows() : plugin.getConfigManager().getDefaultRows();
+            pages = stored != null ? stored.pages() : plugin.getConfigManager().getDefaultPages();
         }
-        Inventory inventory = createInventory(ownerId, ownerName, rows);
+        List<ItemStack[]> storedPages = new ArrayList<>();
         if (stored != null) {
-            inventory.setContents(fit(stored.contents(), inventory.getSize()));
+            for (int page = 0; page < stored.pages(); page++) {
+                storedPages.add(stored.page(page));
+            }
         }
-        openInventories.put(ownerId, inventory);
+        loaded.put(ownerId, build(ownerId, ownerName, rows, pages, storedPages));
         for (Player viewer : viewers) {
-            show(viewer, target, ownerId, ownerName, openInventories.get(ownerId));
+            show(viewer, target, ownerId, ownerName, loaded.get(ownerId));
         }
     }
 
@@ -124,55 +160,135 @@ public class BackpackManager {
         }
     }
 
-    private void show(Player viewer, OfflinePlayer target, UUID ownerId, String ownerName, Inventory inventory) {
+    private void show(Player viewer, OfflinePlayer target, UUID ownerId, String ownerName, Backpack backpack) {
         if (target instanceof Player onlineTarget && onlineTarget.isOnline()) {
             int allowedRows = getAllowedRows(onlineTarget);
-            if (allowedRows * 9 > inventory.getSize()) {
-                inventory = growInventory(inventory, ownerId, ownerName, allowedRows);
-                openInventories.put(ownerId, inventory);
+            int allowedPages = getAllowedPages(onlineTarget);
+            if (allowedRows > backpack.rows() || allowedPages > backpack.pages().size()) {
+                backpack = rebuild(backpack, ownerId, ownerName, Math.max(allowedRows, backpack.rows()), allowedPages);
+                loaded.put(ownerId, backpack);
             }
         }
-        viewer.openInventory(inventory);
-        viewer.playSound(viewer.getLocation(), plugin.getConfigManager().getOpenSound(),
+        viewer.openInventory(backpack.pages().getFirst());
+        playSound(viewer, plugin.getConfigManager().getOpenSound());
+    }
+
+    private Backpack build(UUID ownerId, String ownerName, int rows, int minPages, List<ItemStack[]> storedPages) {
+        List<ItemStack[]> laidOut = BackpackLayout.arrange(storedPages, rows, minPages);
+        int pageCount = laidOut.size();
+        List<Inventory> pages = new ArrayList<>(pageCount);
+        for (int page = 0; page < pageCount; page++) {
+            BackpackHolder holder = new BackpackHolder(ownerId, page, pageCount);
+            Inventory inventory = Bukkit.createInventory(holder, rows * 9, title(ownerName, page, pageCount));
+            holder.setInventory(inventory);
+            inventory.setContents(laidOut.get(page));
+            ItemManager items = plugin.getItemManager();
+            if (BackpackLayout.hasPrevious(page)) {
+                inventory.setItem(BackpackLayout.previousSlot(rows), items.createPageButton("backpack.previous-page", page, pageCount));
+            }
+            if (BackpackLayout.hasNext(page, pageCount)) {
+                inventory.setItem(BackpackLayout.nextSlot(rows), items.createPageButton("backpack.next-page", page + 2, pageCount));
+            }
+            pages.add(inventory);
+        }
+        return new Backpack(rows, List.copyOf(pages));
+    }
+
+    private Backpack rebuild(Backpack old, UUID ownerId, String ownerName, int rows, int minPages) {
+        for (Inventory page : old.pages()) {
+            for (HumanEntity viewer : Set.copyOf(page.getViewers())) {
+                viewer.closeInventory();
+            }
+        }
+        List<ItemStack[]> contents = new ArrayList<>();
+        for (int page = 0; page < old.pages().size(); page++) {
+            contents.add(withoutButtons(old, page, false));
+        }
+        return build(ownerId, ownerName, rows, minPages, contents);
+    }
+
+    private Component title(String ownerName, int page, int pageCount) {
+        String title = titleTemplate.converted(plugin.getConfigManager().getBackpackTitleTemplate());
+        if (pageCount > 1) {
+            title += pageTitleTemplate.converted(plugin.getConfigManager().getPageTitleTemplate());
+        }
+        return plugin.getMessageManager().parseConverted(title
+                .replace("{player}", ownerName)
+                .replace("{page}", String.valueOf(page + 1))
+                .replace("{pages}", String.valueOf(pageCount)));
+    }
+
+    // Caches the legacy/hex-to-MiniMessage conversion of a configured template.
+    private final class Template {
+        private String raw;
+        private String converted;
+
+        String converted(String current) {
+            if (converted == null || !current.equals(raw)) {
+                converted = plugin.getMessageManager().toMiniMessageSyntax(current);
+                raw = current;
+            }
+            return converted;
+        }
+    }
+
+    public boolean isTurningPage(HumanEntity viewer) {
+        return turningPage.contains(viewer.getUniqueId());
+    }
+
+    /**
+     * Switches {@code viewer} from the page of {@code holder} to the next or
+     * previous one. An item on their cursor comes along to the new page.
+     */
+    public void turnPage(Player viewer, BackpackHolder holder, boolean forward) {
+        Backpack backpack = loaded.get(holder.getOwnerId());
+        if (backpack == null || !backpack.pages().contains(holder.getInventory())
+                || !holder.getInventory().equals(viewer.getOpenInventory().getTopInventory())) {
+            return;
+        }
+        int target = holder.getPage() + (forward ? 1 : -1);
+        if (target < 0 || target >= backpack.pages().size()) {
+            return;
+        }
+        Inventory next = backpack.pages().get(target);
+
+        // Kept off the cursor while switching, or closing the old page would
+        // put it into the player's inventory or drop it.
+        ItemStack cursor = viewer.getItemOnCursor();
+        viewer.setItemOnCursor(null);
+        turningPage.add(viewer.getUniqueId());
+        try {
+            viewer.openInventory(next);
+        } finally {
+            turningPage.remove(viewer.getUniqueId());
+        }
+
+        boolean stillViewing = backpack.isShowing(viewer);
+        if (!cursor.isEmpty()) {
+            if (stillViewing) {
+                viewer.setItemOnCursor(cursor);
+            } else {
+                plugin.getItemManager().give(viewer, cursor);
+            }
+        }
+        if (!stillViewing) {
+            // Another plugin stopped the new page from opening, so this
+            // became a plain close that the close event did not handle.
+            handleClose(holder.getOwnerId(), viewer);
+        } else if (next.equals(viewer.getOpenInventory().getTopInventory())) {
+            playSound(viewer, plugin.getConfigManager().getPageSound());
+        }
+    }
+
+    private void playSound(Player viewer, Sound sound) {
+        viewer.playSound(viewer.getLocation(), sound,
                 plugin.getConfigManager().getSoundVolume(), plugin.getConfigManager().getSoundPitch());
     }
 
-    private Inventory createInventory(UUID ownerId, String ownerName, int rows) {
-        BackpackHolder holder = new BackpackHolder(ownerId);
-        Component title = plugin.getMessageManager().parseConverted(resolveTitle(ownerName));
-        Inventory inventory = Bukkit.createInventory(holder, rows * 9, title);
-        holder.setInventory(inventory);
-        return inventory;
-    }
-
-    private String resolveTitle(String ownerName) {
-        String raw = plugin.getConfigManager().getBackpackTitleTemplate();
-        if (titleTemplateConverted == null || !raw.equals(titleTemplateRaw)) {
-            titleTemplateConverted = plugin.getMessageManager().toMiniMessageSyntax(raw);
-            titleTemplateRaw = raw;
-        }
-        return titleTemplateConverted.replace("{player}", ownerName);
-    }
-
-    private Inventory growInventory(Inventory old, UUID ownerId, String ownerName, int newRows) {
-        Inventory grown = createInventory(ownerId, ownerName, newRows);
-        grown.setContents(fit(old.getContents(), grown.getSize()));
-        for (HumanEntity viewer : Set.copyOf(old.getViewers())) {
-            viewer.closeInventory();
-        }
-        return grown;
-    }
-
-    private ItemStack[] fit(ItemStack[] contents, int size) {
-        ItemStack[] result = new ItemStack[size];
-        System.arraycopy(contents, 0, result, 0, Math.min(contents.length, size));
-        return result;
-    }
-
     public void save(UUID ownerId) {
-        Inventory inventory = openInventories.get(ownerId);
-        if (inventory != null) {
-            plugin.getDataManager().saveAsync(ownerId, deepCopy(inventory));
+        Backpack backpack = loaded.get(ownerId);
+        if (backpack != null) {
+            plugin.getDataManager().saveAsync(ownerId, deepCopy(backpack));
         }
     }
 
@@ -180,12 +296,12 @@ public class BackpackManager {
         if (!plugin.getConfigManager().isSaveOnClose()) {
             return;
         }
-        Inventory inventory = openInventories.get(ownerId);
-        if (inventory == null) {
+        Backpack backpack = loaded.get(ownerId);
+        if (backpack == null) {
             return;
         }
-        if (Bukkit.getPlayer(ownerId) == null && onlyViewedBy(inventory, closer)) {
-            unload(ownerId, inventory);
+        if (Bukkit.getPlayer(ownerId) == null && onlyViewedBy(backpack, closer)) {
+            unload(ownerId, backpack);
         } else {
             save(ownerId);
         }
@@ -196,31 +312,33 @@ public class BackpackManager {
             return;
         }
         UUID ownerId = owner.getUniqueId();
-        Inventory inventory = openInventories.get(ownerId);
-        if (inventory == null) {
+        Backpack backpack = loaded.get(ownerId);
+        if (backpack == null) {
             return;
         }
-        if (onlyViewedBy(inventory, owner)) {
-            unload(ownerId, inventory);
+        if (onlyViewedBy(backpack, owner)) {
+            unload(ownerId, backpack);
         } else {
             save(ownerId);
         }
     }
 
     // During InventoryCloseEvent the closing player is still listed as a viewer.
-    private static boolean onlyViewedBy(Inventory inventory, Player player) {
-        for (HumanEntity viewer : inventory.getViewers()) {
-            if (!viewer.getUniqueId().equals(player.getUniqueId())) {
-                return false;
+    private static boolean onlyViewedBy(Backpack backpack, Player player) {
+        for (Inventory page : backpack.pages()) {
+            for (HumanEntity viewer : page.getViewers()) {
+                if (!viewer.getUniqueId().equals(player.getUniqueId())) {
+                    return false;
+                }
             }
         }
         return true;
     }
 
-    private void unload(UUID ownerId, Inventory inventory) {
-        openInventories.remove(ownerId);
-        plugin.getDataManager().saveAsync(ownerId, deepCopy(inventory));
-        plugin.getBackupManager().rememberUnloaded(ownerId, deepCopy(inventory));
+    private void unload(UUID ownerId, Backpack backpack) {
+        loaded.remove(ownerId);
+        plugin.getDataManager().saveAsync(ownerId, deepCopy(backpack));
+        plugin.getBackupManager().rememberUnloaded(ownerId, deepCopy(backpack));
     }
 
     /**
@@ -230,14 +348,14 @@ public class BackpackManager {
      */
     public void saveAll() {
         forEachLoadedSpread(ownerId -> {
-            Inventory inventory = openInventories.get(ownerId);
-            if (inventory == null) {
+            Backpack backpack = loaded.get(ownerId);
+            if (backpack == null) {
                 return;
             }
-            if (Bukkit.getPlayer(ownerId) == null && inventory.getViewers().isEmpty()) {
-                unload(ownerId, inventory);
+            if (Bukkit.getPlayer(ownerId) == null && !backpack.hasViewers()) {
+                unload(ownerId, backpack);
             } else {
-                plugin.getDataManager().saveAsync(ownerId, deepCopy(inventory));
+                plugin.getDataManager().saveAsync(ownerId, deepCopy(backpack));
             }
         });
     }
@@ -248,15 +366,15 @@ public class BackpackManager {
      */
     public Set<UUID> snapshotLoaded(BiConsumer<UUID, DataManager.BackpackData> sink) {
         return forEachLoadedSpread(ownerId -> {
-            Inventory inventory = openInventories.get(ownerId);
-            if (inventory != null) {
-                sink.accept(ownerId, deepCopy(inventory));
+            Backpack backpack = loaded.get(ownerId);
+            if (backpack != null) {
+                sink.accept(ownerId, deepCopy(backpack));
             }
         });
     }
 
     private Set<UUID> forEachLoadedSpread(Consumer<UUID> action) {
-        Set<UUID> owners = Set.copyOf(openInventories.keySet());
+        Set<UUID> owners = Set.copyOf(loaded.keySet());
         int index = 0;
         for (UUID ownerId : owners) {
             long delay = 1 + (index++ % SPREAD_TICKS);
@@ -268,20 +386,40 @@ public class BackpackManager {
     // Only for shutdown, after every open view was closed: queues a final
     // save of everything still loaded, which DataManager.shutdown() waits for.
     public void saveAllNow() {
-        for (Map.Entry<UUID, Inventory> entry : openInventories.entrySet()) {
+        for (Map.Entry<UUID, Backpack> entry : loaded.entrySet()) {
             plugin.getDataManager().saveAsync(entry.getKey(), deepCopy(entry.getValue()));
         }
     }
 
     // getContents() returns live mirrors of the slot items, which must not be
     // serialized on another thread while players keep editing them.
-    private static DataManager.BackpackData deepCopy(Inventory inventory) {
-        ItemStack[] contents = inventory.getContents();
-        ItemStack[] copy = new ItemStack[contents.length];
-        for (int i = 0; i < contents.length; i++) {
-            copy[i] = contents[i] == null ? null : contents[i].clone();
+    private DataManager.BackpackData deepCopy(Backpack backpack) {
+        int size = backpack.rows() * 9;
+        ItemStack[] copy = new ItemStack[size * backpack.pages().size()];
+        for (int page = 0; page < backpack.pages().size(); page++) {
+            System.arraycopy(withoutButtons(backpack, page, true), 0, copy, page * size, size);
         }
-        return new DataManager.BackpackData(inventory.getSize() / 9, copy);
+        return new DataManager.BackpackData(backpack.rows(), backpack.pages().size(), copy);
+    }
+
+    // Only the two button slots are checked, and only for the button itself:
+    // a real item that somehow got there is kept and moved on the next build.
+    private ItemStack[] withoutButtons(Backpack backpack, int page, boolean cloneItems) {
+        ItemStack[] contents = backpack.pages().get(page).getContents();
+        int pageCount = backpack.pages().size();
+        for (int slot = 0; slot < contents.length; slot++) {
+            ItemStack item = contents[slot];
+            if (item == null) {
+                continue;
+            }
+            if (BackpackLayout.isButtonSlot(slot, page, pageCount, backpack.rows())
+                    && plugin.getItemManager().isPageButton(item)) {
+                contents[slot] = null;
+            } else if (cloneItems) {
+                contents[slot] = item.clone();
+            }
+        }
+        return contents;
     }
 
     public boolean isBlocked(ItemStack item) {

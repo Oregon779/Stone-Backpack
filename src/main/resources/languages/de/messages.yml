@@ -15,6 +15,8 @@ backpack:
   item-blocked: "&c✖ Dieses Item kann nicht in einem Rucksack gelagert werden."
   received-item: "&a✔ Du hast einen Rucksack erhalten. Rechtsklick öffnet ihn."
   gave-item: "&a✔ Du hast &b{player} &aeinen Rucksack gegeben."
+  next-page: "&aNächste Seite &7({page}/{pages}) &8»"
+  previous-page: "&8« &aVorherige Seite &7({page}/{pages})"
 
 backups:
   none-yet: "&c✖ Für &f{player} &cgibt es noch kein Backup. Entweder wurde der Rucksack noch nie benutzt oder die erste Sicherung steht noch aus (alle {interval}s)."

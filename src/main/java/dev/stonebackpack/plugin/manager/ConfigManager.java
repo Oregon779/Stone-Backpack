@@ -2,6 +2,7 @@ package dev.stonebackpack.plugin.manager;
 
 import dev.stonebackpack.plugin.config.ConfigMigrations;
 import dev.stonebackpack.plugin.config.ConfigUpdater;
+import dev.stonebackpack.plugin.model.BackpackLayout;
 import dev.stonebackpack.plugin.model.WorldMode;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -18,23 +19,27 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.IntUnaryOperator;
 
 public class ConfigManager {
-    // Server owners pick their own row -> permission entries there; ones they
-    // removed must not come back on the next update.
+    // Server owners pick their own row/page -> permission entries there; ones
+    // they removed must not come back on the next update.
     private static final ConfigUpdater.Options UPDATE_OPTIONS = new ConfigUpdater.Options(
-            "config-version", ConfigMigrations.CONFIG, Set.of("backpack.size-permissions"));
+            "config-version", ConfigMigrations.CONFIG, Set.of("backpack.size-permissions", "backpack.page-permissions"));
 
     private final Plugin plugin;
     private File configFile;
     private YamlConfiguration config;
 
     private Map<String, Integer> sizePermissionsCache = Collections.emptyMap();
+    private Map<String, Integer> pagePermissionsCache = Collections.emptyMap();
     private Set<Material> blockedItemsCache = EnumSet.noneOf(Material.class);
     private Set<String> worldListCache = Collections.emptySet();
     private Material itemMaterialCache = Material.BUNDLE;
+    private Material pageButtonMaterialCache = Material.ARROW;
     private Sound openSoundCache = Sound.BLOCK_ENDER_CHEST_OPEN;
     private Sound closeSoundCache = Sound.BLOCK_ENDER_CHEST_CLOSE;
+    private Sound pageSoundCache = Sound.ITEM_BOOK_PAGE_TURN;
     private WorldMode worldModeCache = WorldMode.NONE;
 
     public ConfigManager(Plugin plugin) {
@@ -62,12 +67,15 @@ public class ConfigManager {
     }
 
     private void recomputeCaches() {
-        sizePermissionsCache = computeSizePermissions();
+        sizePermissionsCache = computeTierPermissions("backpack.size-permissions", "row count", this::clampRows);
+        pagePermissionsCache = computeTierPermissions("backpack.page-permissions", "page count", this::clampPages);
         blockedItemsCache = computeBlockedItems();
         worldListCache = computeWorldList();
         itemMaterialCache = computeItemMaterial();
+        pageButtonMaterialCache = computePageButtonMaterial();
         openSoundCache = computeSound("backpack.sounds.open", Sound.BLOCK_ENDER_CHEST_OPEN);
         closeSoundCache = computeSound("backpack.sounds.close", Sound.BLOCK_ENDER_CHEST_CLOSE);
+        pageSoundCache = computeSound("backpack.sounds.page", Sound.ITEM_BOOK_PAGE_TURN);
         worldModeCache = WorldMode.fromConfig(config.getString("worlds.mode"), plugin.getLogger());
     }
 
@@ -87,19 +95,28 @@ public class ConfigManager {
         return sizePermissionsCache;
     }
 
-    private Map<String, Integer> computeSizePermissions() {
+    public int getDefaultPages() {
+        return clampPages(config.getInt("backpack.default-pages", 1));
+    }
+
+    public Map<String, Integer> getPagePermissions() {
+        return pagePermissionsCache;
+    }
+
+    // Permission -> amount, biggest amount first.
+    private Map<String, Integer> computeTierPermissions(String path, String label, IntUnaryOperator clamp) {
         Map<String, Integer> result = new LinkedHashMap<>();
-        ConfigurationSection section = config.getConfigurationSection("backpack.size-permissions");
+        ConfigurationSection section = config.getConfigurationSection(path);
         if (section != null) {
-            for (String rowKey : section.getKeys(false)) {
-                String permission = section.getString(rowKey);
+            for (String amountKey : section.getKeys(false)) {
+                String permission = section.getString(amountKey);
                 if (permission == null || permission.isBlank()) {
                     continue;
                 }
                 try {
-                    result.put(permission.trim(), clampRows(Integer.parseInt(rowKey.trim())));
+                    result.put(permission.trim(), clamp.applyAsInt(Integer.parseInt(amountKey.trim())));
                 } catch (NumberFormatException exception) {
-                    plugin.getLogger().warning("Invalid row count '" + rowKey + "' in backpack.size-permissions, ignoring.");
+                    plugin.getLogger().warning("Invalid " + label + " '" + amountKey + "' in " + path + ", ignoring.");
                 }
             }
         }
@@ -112,6 +129,28 @@ public class ConfigManager {
 
     private int clampRows(int rows) {
         return Math.max(1, Math.min(6, rows));
+    }
+
+    private int clampPages(int pages) {
+        return Math.max(1, Math.min(BackpackLayout.MAX_PAGES, pages));
+    }
+
+    public String getPageTitleTemplate() {
+        return config.getString("backpack.page-title", "");
+    }
+
+    public Material getPageButtonMaterial() {
+        return pageButtonMaterialCache;
+    }
+
+    private Material computePageButtonMaterial() {
+        String name = config.getString("backpack.page-button-material", "ARROW");
+        Material material = Material.matchMaterial(name);
+        if (material == null || !material.isItem() || material.isAir()) {
+            plugin.getLogger().warning("Unknown item '" + name + "' in backpack.page-button-material, falling back to ARROW.");
+            return Material.ARROW;
+        }
+        return material;
     }
 
     public Set<Material> getBlockedItems() {
@@ -184,6 +223,10 @@ public class ConfigManager {
 
     public Sound getCloseSound() {
         return closeSoundCache;
+    }
+
+    public Sound getPageSound() {
+        return pageSoundCache;
     }
 
     public float getSoundVolume() {
