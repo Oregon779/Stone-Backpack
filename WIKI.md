@@ -86,9 +86,16 @@ Updating is a file swap:
 3. Put the new jar in.
 4. Start the server.
 
-Your settings and all backpacks are kept. On startup, StoneBackpack checks `config.yml` and the `messages.yml` of the selected language for options that were added in the new version and adds only those. Existing values are never changed.
+Your settings and all backpacks are kept. On every start and `/stonebackpack reload`, StoneBackpack checks `config.yml` and the `messages.yml` of the selected language for options that were added in the new version and adds only those:
 
-When options are added, the file is rewritten in the default layout: your values stay, but **your own comments and options the plugin doesn't know are removed**. Keep notes outside these files.
+- New options are inserted **at the same place as in the default file, together with their explanation comments**, using your file's indentation.
+- Everything else stays exactly as it is: your values, **your own comments**, blank lines, the order of options and options the plugin doesn't know.
+- Before a file is changed, the previous version is saved next to it as `config.yml.bak` (or `messages.yml.bak`). Files are written safely, so a crash can't leave a half-written config behind.
+- Entries you removed from `backpack.size-permissions` stay removed.
+- A file with a YAML syntax error is **not touched**. The console names the line; until you fix it, options that can't be read use their default values.
+- The console lists every added option, for example: `Added 2 new option(s) to config.yml: backups, config-version. Existing settings were kept.`
+
+`config-version` at the bottom of `config.yml` tells the plugin which layout your file has. Don't change it. When a future version renames, moves or removes an option, your value is carried over automatically. Only in that case, and for files written in the `{ ... }` short form, the file is rewritten in the standard layout - all values and comments are still kept.
 
 Things worth knowing when coming from older versions:
 
@@ -304,7 +311,7 @@ Leave `data.save-on-close` and `data.save-on-quit` on unless you have a reason. 
 
 - `languages/<language>/messages.yml` contains **all texts**: chat messages, help, backup menu and item names. English (`en`) and German (`de`) are included; `language` in `config.yml` selects the one that is used.
 - If the selected language folder doesn't exist, English is used and a warning is logged.
-- **New language:** copy `languages/en/messages.yml` to e.g. `languages/fr/messages.yml`, translate it, set `language: fr` and run `/stonebackpack reload`. New texts of future versions are only added automatically to `en` and `de`, so compare your file with the English one after updating. A missing text shows its key (for example `backups.empty`) instead.
+- **New language:** copy `languages/en/messages.yml` to e.g. `languages/fr/messages.yml`, translate it, set `language: fr` and run `/stonebackpack reload`. New texts of future versions are added to your file automatically **in English**, so you only need to translate them.
 
 **Colors** - all of these work in every text, even mixed:
 

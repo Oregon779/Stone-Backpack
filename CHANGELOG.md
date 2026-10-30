@@ -4,6 +4,14 @@ All notable changes to StoneBackpack are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versions before 1.5.0 are listed in the Modrinth version history.
 
+## [Unreleased]
+
+### Changed
+- **Config updates keep your file as it is:** new options are inserted into `config.yml` and `messages.yml` at the same place as in the default file, together with their explanation comments. Your values, comments, blank lines, option order and unknown options are no longer touched, and entries you removed from `backpack.size-permissions` stay removed.
+- The bundled `config.yml` now explains every option in comments, and has a `config-version` so future versions can carry renamed or moved options over automatically.
+- Before a config or message file is changed, the previous version is saved as `<file>.bak`. The file is written safely, and a file with a syntax error is left untouched (the console names the line).
+- Own translations get new texts added in English instead of showing the bare message key.
+
 ## [1.5.0]
 
 > **StoneBackpack now requires Paper 26.2 or newer and Java 25.** Servers on older Paper or Java versions should stay on 1.4.3.

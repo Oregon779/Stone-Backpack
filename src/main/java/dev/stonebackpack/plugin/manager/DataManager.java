@@ -1,5 +1,6 @@
 package dev.stonebackpack.plugin.manager;
 
+import dev.stonebackpack.plugin.util.AtomicFiles;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
@@ -7,15 +8,9 @@ import org.bukkit.plugin.Plugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -155,7 +150,7 @@ public class DataManager {
             for (UUID playerId : playerIds) {
                 try {
                     String saved = Files.readString(fileFor(playerId).toPath(), StandardCharsets.UTF_8);
-                    writeAtomically(backupFileFor(playerId).toPath(),
+                    AtomicFiles.write(backupFileFor(playerId).toPath(),
                             "timestamp: " + System.currentTimeMillis() + "\n" + saved, false);
                 } catch (NoSuchFileException ignored) {
                     // Never used their backpack, nothing to back up.
@@ -193,31 +188,9 @@ public class DataManager {
             }
             yaml.set("rows", data.rows());
             yaml.set("items", Arrays.asList(data.contents()));
-            writeAtomically(target.toPath(), yaml.saveToString(), sync);
+            AtomicFiles.write(target.toPath(), yaml.saveToString(), sync);
         } catch (Exception exception) {
             plugin.getLogger().log(Level.SEVERE, "Could not save " + description + ".", exception);
-        }
-    }
-
-    // Writes to a temporary file and renames it over the target, so a crash
-    // or kill mid-write leaves the previous file intact instead of a
-    // truncated one.
-    private static void writeAtomically(Path target, String content, boolean sync) throws IOException {
-        Path temp = target.resolveSibling(target.getFileName() + ".tmp");
-        try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
-                StandardOpenOption.TRUNCATE_EXISTING)) {
-            ByteBuffer buffer = ByteBuffer.wrap(content.getBytes(StandardCharsets.UTF_8));
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
-            }
-            if (sync) {
-                channel.force(true);
-            }
-        }
-        try {
-            Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException exception) {
-            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 

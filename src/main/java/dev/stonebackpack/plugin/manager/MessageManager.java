@@ -8,7 +8,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import java.io.File;
-import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -60,14 +60,9 @@ public class MessageManager {
             file = languageFile(resolved);
         }
 
-        try {
-            ConfigUpdater.UpdateResult result = ConfigUpdater.update(plugin, "languages/" + resolved + "/messages.yml", file);
-            if (result.updated()) {
-                plugin.getLogger().info("Added " + result.addedKeys() + " new message(s) to languages/" + resolved + "/messages.yml, existing text was kept.");
-            }
-        } catch (IOException exception) {
-            plugin.getLogger().warning("Could not update messages.yml for language '" + resolved + "': " + exception.getMessage());
-        }
+        // Own translations get new texts in English rather than showing bare keys.
+        String defaults = "languages/" + (Arrays.asList(SHIPPED_LANGUAGES).contains(resolved) ? resolved : "en") + "/messages.yml";
+        ConfigUpdater.update(plugin, defaults, "languages/" + resolved + "/messages.yml", file, ConfigUpdater.Options.plain());
 
         messages = YamlConfiguration.loadConfiguration(file);
         activeLanguage = resolved;

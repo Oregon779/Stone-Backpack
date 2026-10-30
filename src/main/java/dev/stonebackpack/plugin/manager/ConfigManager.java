@@ -1,5 +1,6 @@
 package dev.stonebackpack.plugin.manager;
 
+import dev.stonebackpack.plugin.config.ConfigMigrations;
 import dev.stonebackpack.plugin.config.ConfigUpdater;
 import dev.stonebackpack.plugin.model.WorldMode;
 import org.bukkit.Material;
@@ -9,7 +10,6 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -20,6 +20,11 @@ import java.util.Map;
 import java.util.Set;
 
 public class ConfigManager {
+    // Server owners pick their own row -> permission entries there; ones they
+    // removed must not come back on the next update.
+    private static final ConfigUpdater.Options UPDATE_OPTIONS = new ConfigUpdater.Options(
+            "config-version", ConfigMigrations.CONFIG, Set.of("backpack.size-permissions"));
+
     private final Plugin plugin;
     private File configFile;
     private YamlConfiguration config;
@@ -42,14 +47,7 @@ public class ConfigManager {
             plugin.saveResource("config.yml", false);
             plugin.getLogger().info("Created default config.yml.");
         } else {
-            try {
-                ConfigUpdater.UpdateResult result = ConfigUpdater.update(plugin, "config.yml", configFile);
-                if (result.updated()) {
-                    plugin.getLogger().info("Added " + result.addedKeys() + " new config option(s) to config.yml, existing settings were kept.");
-                }
-            } catch (IOException exception) {
-                plugin.getLogger().warning("Could not update config.yml: " + exception.getMessage());
-            }
+            ConfigUpdater.update(plugin, "config.yml", configFile, UPDATE_OPTIONS);
         }
         config = YamlConfiguration.loadConfiguration(configFile);
         recomputeCaches();

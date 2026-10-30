@@ -1,10 +1,19 @@
+# StoneBackpack configuration - every option is explained in WIKI.md ("Configuration Reference").
+# After editing, run /stonebackpack reload. New options from plugin updates are added
+# automatically; your values and comments stay as they are.
+
+# Language folder for all texts: en, de or your own folder in languages/.
 language: en
 
 backpack:
+  # Title of the backpack window. {player} is the owner's name.
   title: "&8&l» &7{player}'s Backpack &8&l«"
 
+  # Rows (1-6) for players without a size permission.
   default-rows: 3
 
+  # Which permission unlocks how many rows; the biggest one a player has counts.
+  # Entries you remove here are not added back by updates.
   size-permissions:
     1: stonebackpack.size.1
     2: stonebackpack.size.2
@@ -13,16 +22,22 @@ backpack:
     5: stonebackpack.size.5
     6: stonebackpack.size.6
 
+  # Items that can't be put into a backpack. The backpack item itself is always blocked.
   blocked-items: ["SHULKER_BOX", "WHITE_SHULKER_BOX", "ORANGE_SHULKER_BOX", "MAGENTA_SHULKER_BOX", "LIGHT_BLUE_SHULKER_BOX", "YELLOW_SHULKER_BOX", "LIME_SHULKER_BOX", "PINK_SHULKER_BOX", "GRAY_SHULKER_BOX", "LIGHT_GRAY_SHULKER_BOX", "CYAN_SHULKER_BOX", "PURPLE_SHULKER_BOX", "BLUE_SHULKER_BOX", "BROWN_SHULKER_BOX", "GREEN_SHULKER_BOX", "RED_SHULKER_BOX", "BLACK_SHULKER_BOX"]
 
+  # The backpack item: right-click it to open your backpack.
   item:
+    # Must be true for give-on-first-join. /stonebackpack give works either way.
     enabled: false
     material: BUNDLE
     name: "&6&lBackpack"
     lore: ["&7Right-click to open your backpack"]
+    # Custom model data for resource packs, 0 = none.
     custom-model-data: 0
+    # Give the item once to players who have never used a backpack.
     give-on-first-join: false
 
+  # Sounds when opening and closing, heard only by that player.
   sounds:
     open: BLOCK_ENDER_CHEST_OPEN
     close: BLOCK_ENDER_CHEST_CLOSE
@@ -30,22 +45,33 @@ backpack:
     pitch: 1.0
 
 command:
+  # Seconds between two /backpack uses, 0 = no cooldown.
   cooldown-seconds: 2
 
+# Where backpacks can be opened: NONE = everywhere, WHITELIST = only in the listed
+# worlds, BLACKLIST = everywhere except the listed worlds.
 worlds:
   mode: NONE
   list: []
 
 data:
+  # Minutes between automatic saves of all loaded backpacks (minimum 1).
   autosave-interval-minutes: 5
+  # Save a backpack whenever it is closed, and when its owner leaves.
   save-on-close: true
   save-on-quit: true
 
+# Regular backups of every online player's backpack, restorable with /stonebackpack backups.
 backups:
   enabled: true
+  # Seconds between two backups (minimum 10).
   interval-seconds: 60
 
+# Checks Modrinth for new plugin versions and tells admins.
 update-checker:
   enabled: true
+  # Minutes between two checks (minimum 5).
   check-interval-minutes: 60
 
+# Layout version of this file, used to update it automatically. Do not change.
+config-version: 1
