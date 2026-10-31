@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class StoneBackpackCommand implements CommandExecutor, TabCompleter {
-    private static final List<String> SUBCOMMANDS = List.of("help", "reload", "give", "inspect", "backups", "checkupdate");
+    private static final List<String> SUBCOMMANDS = List.of("help", "reload", "give", "inspect", "backups", "storage", "checkupdate");
 
     private final StoneBackpack plugin;
 
@@ -36,6 +36,7 @@ public class StoneBackpackCommand implements CommandExecutor, TabCompleter {
             case "give" -> handleGive(sender, args);
             case "inspect" -> handleInspect(sender, args);
             case "backups" -> handleBackups(sender);
+            case "storage" -> handleStorage(sender);
             case "checkupdate" -> handleCheckUpdate(sender);
             case "help" -> sendHelp(sender);
             default -> sendHelp(sender);
@@ -107,6 +108,18 @@ public class StoneBackpackCommand implements CommandExecutor, TabCompleter {
         plugin.getBackupMenu().openPlayerList(admin, 0);
     }
 
+    private void handleStorage(CommandSender sender) {
+        if (!hasAdmin(sender)) {
+            plugin.getMessageManager().send(sender, "general.no-permission", null);
+            return;
+        }
+        if (!(sender instanceof Player admin)) {
+            plugin.getMessageManager().send(sender, "general.player-only", null);
+            return;
+        }
+        plugin.getStorageMenu().openPlayerList(admin, 0);
+    }
+
     private void handleCheckUpdate(CommandSender sender) {
         if (!hasAdmin(sender)) {
             plugin.getMessageManager().send(sender, "general.no-permission", null);
@@ -129,6 +142,7 @@ public class StoneBackpackCommand implements CommandExecutor, TabCompleter {
             plugin.getMessageManager().sendRaw(sender, "help.give", null);
             plugin.getMessageManager().sendRaw(sender, "help.inspect", null);
             plugin.getMessageManager().sendRaw(sender, "help.backups", null);
+            plugin.getMessageManager().sendRaw(sender, "help.storage", null);
             plugin.getMessageManager().sendRaw(sender, "help.reload", null);
             plugin.getMessageManager().sendRaw(sender, "help.checkupdate", null);
         }

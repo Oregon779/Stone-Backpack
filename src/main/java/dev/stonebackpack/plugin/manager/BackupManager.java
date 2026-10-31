@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -83,12 +84,17 @@ public class BackupManager {
         }
     }
 
-    /**
-     * Packs the backup's items into shulker boxes of 27. Shulker boxes found in
-     * the backup (only possible with the blocklist bypass) are returned loose,
-     * since nested shulker boxes get flagged as illegal items by many servers.
-     */
     public List<ItemStack> createRestoreItems(ItemStack[] contents, String ownerName) {
+        return packIntoShulkerBoxes(Arrays.asList(contents), "backups.shulker-name", ownerName);
+    }
+
+    /**
+     * Packs the items into shulker boxes of 27, named with the message at
+     * {@code namePath}. Shulker boxes among the items (only possible with the
+     * blocklist bypass) are returned loose, since nested shulker boxes get
+     * flagged as illegal items by many servers.
+     */
+    public List<ItemStack> packIntoShulkerBoxes(List<ItemStack> contents, String namePath, String ownerName) {
         List<ItemStack> packable = new ArrayList<>();
         List<ItemStack> loose = new ArrayList<>();
         for (ItemStack item : contents) {
@@ -112,7 +118,7 @@ public class BackupManager {
                     "index", String.valueOf(i + 1),
                     "total", String.valueOf(boxes));
             box.editMeta(meta -> meta.displayName(plugin.getMessageManager()
-                    .component("backups.shulker-name", placeholders)
+                    .component(namePath, placeholders)
                     .decoration(TextDecoration.ITALIC, false)));
             box.setData(DataComponentTypes.CONTAINER, ItemContainerContents.containerContents(chunk));
             result.add(box);

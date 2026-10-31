@@ -56,6 +56,10 @@ class PagesTest extends PluginTestBase {
         return (BackpackHolder) inventory.getHolder(false);
     }
 
+    private File storageFile(PlayerMock player) {
+        return new File(plugin.getDataFolder(), "storage/" + player.getUniqueId() + ".yml");
+    }
+
     private boolean isButton(ItemStack item) {
         return plugin.getItemManager().isPageButton(item);
     }
@@ -211,7 +215,7 @@ class PagesTest extends PluginTestBase {
     }
 
     @Test
-    void itemsOfPagesAboveThePermissionMoveToTheRemainingPages() throws Exception {
+    void itemsOfPagesAboveThePermissionGoToTheItemStorage() throws Exception {
         PlayerMock player = server.addPlayer("Keeper");
         ItemStack[] items = new ItemStack[81];
         items[0] = new ItemStack(Material.DIAMOND);
@@ -222,53 +226,10 @@ class PagesTest extends PluginTestBase {
 
         assertEquals(1, holder(page).getPageCount());
         assertEquals(Material.DIAMOND, page.getItem(0).getType());
-        assertEquals(Material.NETHERITE_INGOT, page.getItem(1).getType());
-    }
-
-    @Test
-    void pageKeptForItemsThatDoNotFitOnlyAllowsTakingItemsOut() throws Exception {
-        PlayerMock player = server.addPlayer("Full");
-        ItemStack[] items = new ItemStack[54];
-        for (int i = 0; i < 27; i++) {
-            items[i] = new ItemStack(Material.DIRT, i + 1);
-        }
-        items[27 + 4] = new ItemStack(Material.EMERALD);
-        writeBackpack(player, 2, items);
-
-        Inventory first = openOwnBackpack(player);
-        assertEquals(2, holder(first).getPageCount());
-        assertFalse(holder(first).isOverLimit());
-        Inventory second = turn(player, NEXT);
-        assertTrue(holder(second).isOverLimit());
-        drainMessages(player);
-
-        player.setItemOnCursor(new ItemStack(Material.STONE));
-        assertTrue(click(player, 8, ClickType.LEFT, InventoryAction.PLACE_ALL).isCancelled());
-        assertTrue(drainMessages(player).getFirst().contains("page limit"));
-        InventoryDragEvent drag = new InventoryDragEvent(player.getOpenInventory(), null, new ItemStack(Material.STONE), false,
-                Map.of(8, new ItemStack(Material.STONE)));
-        server.getPluginManager().callEvent(drag);
-        assertTrue(drag.isCancelled());
-        player.setItemOnCursor(null);
-        int emeraldSlot = second.first(Material.EMERALD);
-        assertFalse(click(player, emeraldSlot, ClickType.LEFT, InventoryAction.PICKUP_ALL).isCancelled());
-
-        PlayerMock admin = server.addPlayer("Admin");
-        admin.setOp(true);
-        admin.performCommand("backpack Full");
-        settle();
-        turn(admin, NEXT);
-        admin.setItemOnCursor(new ItemStack(Material.STONE));
-        assertFalse(click(admin, 8, ClickType.LEFT, InventoryAction.PLACE_ALL).isCancelled());
-        admin.setItemOnCursor(null);
-        admin.closeInventory();
-
-        // Once everything fits on the allowed page again, the extra page goes away.
-        assertEquals(27, second.getItem(0).getAmount());
-        second.setItem(0, null);
-        second.setItem(emeraldSlot, null);
-        player.closeInventory();
-        assertEquals(1, holder(openOwnBackpack(player)).getPageCount());
+        assertFalse(page.contains(Material.NETHERITE_INGOT));
+        List<?> stored = YamlConfiguration.loadConfiguration(storageFile(player)).getList("items");
+        assertEquals(1, stored.size());
+        assertEquals(Material.NETHERITE_INGOT, ((ItemStack) stored.getFirst()).getType());
     }
 
     @Test
@@ -280,6 +241,7 @@ class PagesTest extends PluginTestBase {
         turn(player, NEXT);
         turn(player, NEXT).setItem(4, new ItemStack(Material.EMERALD, 2));
         player.closeInventory();
+        drainMessages(player);
 
         pages.unsetPermission("stonebackpack.pages.3");
         Inventory only = openOwnBackpack(player);
@@ -288,8 +250,17 @@ class PagesTest extends PluginTestBase {
         assertEquals(27, only.getSize());
         assertNull(only.getItem(NEXT));
         assertEquals(Material.DIAMOND, only.getItem(0).getType());
-        assertEquals(Material.EMERALD, only.getItem(1).getType());
-        assertEquals(2, only.getItem(1).getAmount());
+        assertFalse(only.contains(Material.EMERALD));
+        assertTrue(drainMessages(player).stream().anyMatch(message -> message.contains("1 item stack(s)")));
+
+        // Stored and saved right away, so the emerald is in exactly one place.
+        YamlConfiguration saved = YamlConfiguration.loadConfiguration(playerDataFile(player.getUniqueId()));
+        assertEquals(1, saved.getInt("pages"));
+        assertTrue(saved.getList("items").stream().noneMatch(item -> item instanceof ItemStack stack
+                && stack.getType() == Material.EMERALD));
+        ItemStack stored = (ItemStack) YamlConfiguration.loadConfiguration(storageFile(player)).getList("items").getFirst();
+        assertEquals(Material.EMERALD, stored.getType());
+        assertEquals(2, stored.getAmount());
     }
 
     @Test

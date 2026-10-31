@@ -17,8 +17,10 @@ import dev.stonebackpack.plugin.manager.MessageManager;
 import dev.stonebackpack.plugin.manager.UpdateChecker;
 import dev.stonebackpack.plugin.manager.WorldRestrictionManager;
 import dev.stonebackpack.plugin.menu.BackupMenu;
+import dev.stonebackpack.plugin.menu.StorageMenu;
 import dev.stonebackpack.plugin.model.BackpackHolder;
 import dev.stonebackpack.plugin.model.BackupMenuHolder;
+import dev.stonebackpack.plugin.model.StorageMenuHolder;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -37,6 +39,7 @@ public class StoneBackpack extends JavaPlugin {
     private BackpackManager backpackManager;
     private BackupManager backupManager;
     private BackupMenu backupMenu;
+    private StorageMenu storageMenu;
     private UpdateChecker updateChecker;
     private ScheduledTask autosaveTask;
 
@@ -56,6 +59,7 @@ public class StoneBackpack extends JavaPlugin {
         backpackManager = new BackpackManager(this);
         backupManager = new BackupManager(this);
         backupMenu = new BackupMenu(this);
+        storageMenu = new StorageMenu(this);
 
         // Warms the O(1) player-name lookup cache off the main thread at
         // startup instead of letting the first /backpack <name>,
@@ -71,6 +75,7 @@ public class StoneBackpack extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new BackpackItemListener(this), this);
         Bukkit.getPluginManager().registerEvents(new BackpackInventoryListener(this), this);
         Bukkit.getPluginManager().registerEvents(backupMenu, this);
+        Bukkit.getPluginManager().registerEvents(storageMenu, this);
 
         startAutosaveTask();
         backupManager.start();
@@ -112,7 +117,7 @@ public class StoneBackpack extends JavaPlugin {
                 continue;
             }
             InventoryHolder holder = view.getTopInventory().getHolder(false);
-            if (holder instanceof BackpackHolder || holder instanceof BackupMenuHolder) {
+            if (holder instanceof BackpackHolder || holder instanceof BackupMenuHolder || holder instanceof StorageMenuHolder) {
                 player.closeInventory();
             }
         }
@@ -190,6 +195,10 @@ public class StoneBackpack extends JavaPlugin {
 
     public BackupMenu getBackupMenu() {
         return backupMenu;
+    }
+
+    public StorageMenu getStorageMenu() {
+        return storageMenu;
     }
 
     public UpdateChecker getUpdateChecker() {

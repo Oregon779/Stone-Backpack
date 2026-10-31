@@ -33,15 +33,10 @@ public class BackpackManager {
     // snapshotting hundreds of backpacks never lands in a single tick.
     private static final int SPREAD_TICKS = 20;
 
-    // The page limit of a backpack loaded while its owner was offline, whose
-    // permissions are unknown: every stored page stays.
-    private static final int NO_LIMIT = Integer.MAX_VALUE;
-
     private final StoneBackpack plugin;
 
-    // One inventory per page, all with the same number of rows. Pages from
-    // pageLimit on only exist because the items don't fit on fewer.
-    private record Backpack(int rows, int pageLimit, List<Inventory> pages) {
+    // One inventory per page, all with the same number of rows.
+    private record Backpack(int rows, List<Inventory> pages) {
         boolean hasViewers() {
             for (Inventory page : pages) {
                 if (!page.getViewers().isEmpty()) {
@@ -130,17 +125,16 @@ public class BackpackManager {
             return;
         }
 
+        // Without the owner online their permissions are unknown, so every
+        // stored page stays until they open it themselves.
         int rows;
-        int limit;
         int pages;
         if (target instanceof Player onlineTarget && onlineTarget.isOnline()) {
             int allowed = getAllowedRows(onlineTarget);
             rows = stored != null ? Math.max(stored.rows(), allowed) : allowed;
-            limit = getAllowedPages(onlineTarget);
-            pages = limit;
+            pages = getAllowedPages(onlineTarget);
         } else {
             rows = stored != null ? stored.rows() : plugin.getConfigManager().getDefaultRows();
-            limit = NO_LIMIT;
             pages = stored != null ? stored.pages() : plugin.getConfigManager().getDefaultPages();
         }
         List<ItemStack[]> storedPages = new ArrayList<>();
@@ -149,7 +143,9 @@ public class BackpackManager {
                 storedPages.add(stored.page(page));
             }
         }
-        loaded.put(ownerId, build(ownerId, ownerName, rows, pages, limit, storedPages));
+        BackpackLayout.Layout layout = BackpackLayout.arrange(storedPages, rows, pages);
+        loaded.put(ownerId, create(ownerId, ownerName, rows, layout.pages()));
+        storeRemoved(ownerId, ownerName, layout.removed());
         for (Player viewer : viewers) {
             show(viewer, target, ownerId, ownerName, loaded.get(ownerId));
         }
@@ -172,21 +168,19 @@ public class BackpackManager {
         if (target instanceof Player onlineTarget && onlineTarget.isOnline()) {
             int allowedRows = getAllowedRows(onlineTarget);
             int allowedPages = getAllowedPages(onlineTarget);
-            if (allowedRows > backpack.rows() || allowedPages != backpack.pageLimit() || canDropPages(backpack)) {
+            if (allowedRows > backpack.rows() || allowedPages != backpack.pages().size()) {
                 backpack = rebuild(backpack, ownerId, ownerName, Math.max(allowedRows, backpack.rows()), allowedPages);
-                loaded.put(ownerId, backpack);
             }
         }
         viewer.openInventory(backpack.pages().getFirst());
         playSound(viewer, plugin.getConfigManager().getOpenSound());
     }
 
-    private Backpack build(UUID ownerId, String ownerName, int rows, int pageCount, int limit, List<ItemStack[]> storedPages) {
-        List<ItemStack[]> laidOut = BackpackLayout.arrange(storedPages, rows, pageCount);
+    private Backpack create(UUID ownerId, String ownerName, int rows, List<ItemStack[]> laidOut) {
         int count = laidOut.size();
         List<Inventory> pages = new ArrayList<>(count);
         for (int page = 0; page < count; page++) {
-            BackpackHolder holder = new BackpackHolder(ownerId, page, count, page >= limit);
+            BackpackHolder holder = new BackpackHolder(ownerId, page, count);
             Inventory inventory = Bukkit.createInventory(holder, rows * 9, title(ownerName, page, count));
             holder.setInventory(inventory);
             inventory.setContents(laidOut.get(page));
@@ -199,23 +193,10 @@ public class BackpackManager {
             }
             pages.add(inventory);
         }
-        return new Backpack(rows, limit, List.copyOf(pages));
+        return new Backpack(rows, List.copyOf(pages));
     }
 
-    // True when pages above the limit hold items that now fit on fewer pages.
-    private boolean canDropPages(Backpack backpack) {
-        if (backpack.pages().size() <= backpack.pageLimit()) {
-            return false;
-        }
-        List<ItemStack[]> contents = new ArrayList<>();
-        for (int page = 0; page < backpack.pages().size(); page++) {
-            contents.add(withoutButtons(backpack, page, false));
-        }
-        int needed = BackpackLayout.pagesFor(BackpackLayout.countItems(contents), backpack.rows());
-        return Math.max(backpack.pageLimit(), needed) < backpack.pages().size();
-    }
-
-    private Backpack rebuild(Backpack old, UUID ownerId, String ownerName, int rows, int limit) {
+    private Backpack rebuild(Backpack old, UUID ownerId, String ownerName, int rows, int pageCount) {
         for (Inventory page : old.pages()) {
             for (HumanEntity viewer : Set.copyOf(page.getViewers())) {
                 viewer.closeInventory();
@@ -225,7 +206,32 @@ public class BackpackManager {
         for (int page = 0; page < old.pages().size(); page++) {
             contents.add(withoutButtons(old, page, false));
         }
-        return build(ownerId, ownerName, rows, limit, limit, contents);
+        BackpackLayout.Layout layout = BackpackLayout.arrange(contents, rows, pageCount);
+        Backpack rebuilt = create(ownerId, ownerName, rows, layout.pages());
+        loaded.put(ownerId, rebuilt);
+        storeRemoved(ownerId, ownerName, layout.removed());
+        return rebuilt;
+    }
+
+    // Items of pages the owner no longer has go to the item storage, where
+    // admins can hand them out again. The backpack is saved right after, on the
+    // same IO thread, so the same items can't be moved there twice.
+    private void storeRemoved(UUID ownerId, String ownerName, List<ItemStack> removed) {
+        if (removed.isEmpty()) {
+            return;
+        }
+        List<ItemStack> copies = new ArrayList<>(removed.size());
+        for (ItemStack item : removed) {
+            copies.add(item.clone());
+        }
+        plugin.getDataManager().addStoredAsync(ownerId, ownerName, copies);
+        save(ownerId);
+        plugin.getLogger().info("Moved " + copies.size() + " item stack(s) from backpack pages " + ownerName
+                + " no longer has to the item storage (/stonebackpack storage).");
+        Player owner = Bukkit.getPlayer(ownerId);
+        if (owner != null) {
+            plugin.getMessageManager().send(owner, "backpack.items-stored", Map.of("count", String.valueOf(copies.size())));
+        }
     }
 
     private Component title(String ownerName, int page, int pageCount) {

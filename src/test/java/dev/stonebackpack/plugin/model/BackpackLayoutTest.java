@@ -49,11 +49,12 @@ class BackpackLayoutTest {
     void onePageKeepsEverySlotAndHasNoButtons() {
         ItemStack[] stored = fullPage(27);
 
-        List<ItemStack[]> pages = BackpackLayout.arrange(List.<ItemStack[]>of(stored), 3, 1);
+        BackpackLayout.Layout layout = BackpackLayout.arrange(List.<ItemStack[]>of(stored), 3, 1);
 
-        assertEquals(1, pages.size());
+        assertEquals(1, layout.pages().size());
+        assertTrue(layout.removed().isEmpty());
         for (int slot = 0; slot < 27; slot++) {
-            assertSame(stored[slot], pages.get(0)[slot]);
+            assertSame(stored[slot], layout.pages().get(0)[slot]);
         }
     }
 
@@ -61,46 +62,31 @@ class BackpackLayoutTest {
     void itemUnderTheNextButtonMovesToThePageAfter() {
         ItemStack[] stored = fullPage(27);
 
-        List<ItemStack[]> pages = BackpackLayout.arrange(List.<ItemStack[]>of(stored), 3, 2);
+        BackpackLayout.Layout layout = BackpackLayout.arrange(List.<ItemStack[]>of(stored), 3, 2);
 
+        List<ItemStack[]> pages = layout.pages();
         assertEquals(2, pages.size());
         for (int slot = 0; slot < 26; slot++) {
             assertSame(stored[slot], pages.get(0)[slot]);
         }
         assertNull(pages.get(0)[BackpackLayout.nextSlot(3)]);
         assertSame(stored[26], pages.get(1)[0]);
+        assertTrue(layout.removed().isEmpty());
     }
 
     @Test
-    void itemsOfRemovedPagesMoveToTheFirstFreeSlot() {
+    void itemsOfRemovedPagesAreHandedBackInsteadOfMoved() {
         ItemStack first = new ItemStack(Material.DIAMOND);
         ItemStack last = new ItemStack(Material.EMERALD);
 
-        List<ItemStack[]> pages = BackpackLayout.arrange(
+        BackpackLayout.Layout layout = BackpackLayout.arrange(
                 List.of(pageWith(27, 0, first), new ItemStack[27], pageWith(27, 4, last)), 3, 1);
 
-        assertEquals(1, pages.size());
-        assertSame(first, pages.get(0)[0]);
-        assertSame(last, pages.get(0)[1]);
-
-        List<ItemStack[]> twoPages = BackpackLayout.arrange(
-                List.of(pageWith(27, 0, first), new ItemStack[27], pageWith(27, 4, last)), 3, 2);
-        assertEquals(2, twoPages.size());
-        assertSame(last, twoPages.get(0)[1]);
-    }
-
-    @Test
-    void removedPagesStayOnlyAsFarAsTheItemsDoNotFit() {
-        ItemStack[] full = fullPage(27);
-        ItemStack last = new ItemStack(Material.EMERALD);
-        List<ItemStack[]> stored = List.of(full, new ItemStack[27], pageWith(27, 4, last));
-
-        List<ItemStack[]> pages = BackpackLayout.arrange(stored, 3, 1);
-
-        assertEquals(2, pages.size());
-        assertSame(full[26], pages.get(1)[0]);
-        assertSame(last, pages.get(1)[1]);
-        assertEverythingKeptAndButtonSlotsFree(stored, pages, 3);
+        assertEquals(1, layout.pages().size());
+        assertSame(first, layout.pages().get(0)[0]);
+        assertNull(layout.pages().get(0)[1]);
+        assertEquals(1, layout.removed().size());
+        assertSame(last, layout.removed().getFirst());
     }
 
     @Test
@@ -109,7 +95,7 @@ class BackpackLayoutTest {
         ItemStack onSecond = new ItemStack(Material.EMERALD);
 
         List<ItemStack[]> pages = BackpackLayout.arrange(
-                List.of(pageWith(27, 18, onFirst), pageWith(27, 26, onSecond)), 4, 2);
+                List.of(pageWith(27, 18, onFirst), pageWith(27, 26, onSecond)), 4, 2).pages();
 
         assertEquals(2, pages.size());
         assertSame(onFirst, pages.get(0)[18]);
@@ -120,23 +106,24 @@ class BackpackLayoutTest {
     }
 
     @Test
-    void fullBackpackGetsAnotherPageInsteadOfLosingItems() {
+    void itemsThatFindNoFreeSlotAreHandedBack() {
         ItemStack[] first = fullPage(9);
         ItemStack[] second = fullPage(9);
 
-        List<ItemStack[]> pages = BackpackLayout.arrange(List.of(first, second), 1, 2);
+        BackpackLayout.Layout layout = BackpackLayout.arrange(List.of(first, second), 1, 2);
 
-        assertEquals(3, pages.size());
-        assertEverythingKeptAndButtonSlotsFree(List.of(first, second), pages, 1);
+        assertEquals(2, layout.pages().size());
+        assertEquals(List.of(first[8], second[0]), layout.removed());
+        assertEachItemOnceAndButtonSlotsFree(List.of(first, second), layout, 1);
     }
 
     @Test
-    void randomLayoutsKeepEveryItemAndLeaveButtonSlotsFree() {
+    void randomLayoutsKeepOrHandBackEveryItemAndLeaveButtonSlotsFree() {
         Random random = new Random(42);
         for (int run = 0; run < 500; run++) {
             int storedRows = 1 + random.nextInt(6);
             int rows = 1 + random.nextInt(6);
-            int minPages = 1 + random.nextInt(BackpackLayout.MAX_PAGES);
+            int pageCount = 1 + random.nextInt(BackpackLayout.MAX_PAGES);
             double fill = random.nextDouble();
             List<ItemStack[]> stored = new ArrayList<>();
             for (int page = random.nextInt(5); page > 0; page--) {
@@ -149,24 +136,28 @@ class BackpackLayoutTest {
                 stored.add(contents);
             }
 
-            List<ItemStack[]> pages = BackpackLayout.arrange(stored, rows, minPages);
+            BackpackLayout.Layout layout = BackpackLayout.arrange(stored, rows, pageCount);
 
-            int needed = BackpackLayout.pagesFor(BackpackLayout.countItems(stored), rows);
-            assertEquals(Math.max(minPages, needed), pages.size());
-            pages.forEach(page -> assertEquals(rows * 9, page.length));
-            assertEverythingKeptAndButtonSlotsFree(stored, pages, rows);
-            // Laying out the result again must not move anything (no reshuffling on every open).
-            List<ItemStack[]> again = BackpackLayout.arrange(pages, rows, minPages);
-            assertEquals(pages.size(), again.size());
-            for (int page = 0; page < pages.size(); page++) {
+            assertEquals(pageCount, layout.pages().size());
+            layout.pages().forEach(page -> assertEquals(rows * 9, page.length));
+            assertEachItemOnceAndButtonSlotsFree(stored, layout, rows);
+            for (int page = pageCount; page < stored.size(); page++) {
+                for (ItemStack item : stored.get(page)) {
+                    assertTrue(item == null || layout.removed().contains(item), "item of a removed page stayed");
+                }
+            }
+            // Laying out the result again must not move or remove anything.
+            BackpackLayout.Layout again = BackpackLayout.arrange(layout.pages(), rows, pageCount);
+            assertTrue(again.removed().isEmpty());
+            for (int page = 0; page < pageCount; page++) {
                 for (int slot = 0; slot < rows * 9; slot++) {
-                    assertSame(pages.get(page)[slot], again.get(page)[slot]);
+                    assertSame(layout.pages().get(page)[slot], again.pages().get(page)[slot]);
                 }
             }
         }
     }
 
-    private static void assertEverythingKeptAndButtonSlotsFree(List<ItemStack[]> stored, List<ItemStack[]> pages, int rows) {
+    private static void assertEachItemOnceAndButtonSlotsFree(List<ItemStack[]> stored, BackpackLayout.Layout layout, int rows) {
         Set<ItemStack> before = Collections.newSetFromMap(new IdentityHashMap<>());
         stored.forEach(page -> {
             for (ItemStack item : page) {
@@ -176,7 +167,8 @@ class BackpackLayoutTest {
             }
         });
         Set<ItemStack> after = Collections.newSetFromMap(new IdentityHashMap<>());
-        int placed = 0;
+        int seen = 0;
+        List<ItemStack[]> pages = layout.pages();
         for (int page = 0; page < pages.size(); page++) {
             for (int slot = 0; slot < pages.get(page).length; slot++) {
                 ItemStack item = pages.get(page)[slot];
@@ -186,10 +178,12 @@ class BackpackLayoutTest {
                 assertTrue(!BackpackLayout.isButtonSlot(slot, page, pages.size(), rows),
                         "item on a button slot: page " + page + ", slot " + slot);
                 after.add(item);
-                placed++;
+                seen++;
             }
         }
-        assertEquals(before.size(), placed);
+        after.addAll(layout.removed());
+        seen += layout.removed().size();
+        assertEquals(before.size(), seen, "an item was duplicated or dropped");
         assertEquals(before, after);
     }
 }

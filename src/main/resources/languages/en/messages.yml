@@ -17,7 +17,7 @@ backpack:
   gave-item: "&a✔ You gave a backpack to &b{player}&a."
   next-page: "&aNext page &7({page}/{pages}) &8»"
   previous-page: "&8« &aPrevious page &7({page}/{pages})"
-  page-over-limit: "&c✖ This page is above your page limit. You can only take items out of it."
+  items-stored: "&e⚠ {count} item stack(s) from backpack pages you no longer have were put into storage. An admin can give them back to you."
 
 backups:
   none-yet: "&c✖ There is no backup for &f{player} &cyet. Either the backpack has never been used, or the first backup is still pending (every {interval}s)."
@@ -40,6 +40,33 @@ backups:
     copy-name: "&aCopy as shulker box"
     copy-lore: "&7Puts the entire contents into your inventory as shulker box(es)"
 
+storage:
+  none: "&e⚠ No items are stored. Items land here when a player loses backpack pages."
+  none-player: "&e⚠ There are no stored items for &f{player} &eany more."
+  changed: "&e⚠ The storage of &f{player} &echanged in the meantime, nothing was taken. Please try again."
+  taken: "&a✔ You took &b{amount}x {item} &afrom the storage of &b{player}&a."
+  taken-all: "&a✔ You took all &b{stacks} &aitem stack(s) of &b{player} &aas shulker box(es)."
+  given: "&a✔ &b{player} &agot &b{stacks} &aitem stack(s) back."
+  given-partly: "&e⚠ &f{player} &egot &f{given} &eitem stack(s) back; &f{kept} &edidn't fit and stay stored."
+  received: "&a✔ An admin gave you back &b{stacks} &aitem stack(s) from your backpack."
+  player-offline: "&c✖ &f{player} &cis offline. Use \"Take everything\" and hand the items over later."
+  shulker-name: "&6Storage: &f{player} &7({index}/{total})"
+  gui:
+    players-title: "&8Item storage &7- Page {page}/{pages}"
+    items-title: "&8Storage: &7{player} &8({page}/{pages})"
+    player-name: "&e{player}"
+    player-stacks: "&7Stored: &f{stacks} &7item stack(s)"
+    player-updated: "&7Last added: &f{time}"
+    player-lore: "&7Click to view the items"
+    info-name: "&6Stored items"
+    info-stacks: "&7Item stacks: &f{stacks}"
+    info-hint: "&7Click an item to take it"
+    give-name: "&aGive everything to {player}"
+    offline-name: "&7{player} is offline"
+    give-lore: "&7Into the player's inventory; what doesn't fit stays stored"
+    take-all-name: "&aTake everything as shulker box(es)"
+    take-all-lore: "&7Puts all items into your inventory"
+
 help:
   header: "<gradient:#9AA5B1:#FFB055><bold>▬▬▬▬▬ StoneBackpack Help ▬▬▬▬▬</bold></gradient>"
   backpack: "&6/backpack &8» &7Open your own backpack"
@@ -47,6 +74,7 @@ help:
   give: "&6/stonebackpack give <player> &8» &7Give the physical backpack item to a player"
   inspect: "&6/stonebackpack inspect <player> &8» &7Open a player's backpack to view or edit its contents"
   backups: "&6/stonebackpack backups &8» &7View the latest backup of every online player"
+  storage: "&6/stonebackpack storage &8» &7Give back items from backpack pages players lost"
   reload: "&6/stonebackpack reload &8» &7Reload the configuration and messages"
   checkupdate: "&6/stonebackpack checkupdate &8» &7Check Modrinth for a new version right now"
   help: "&6/stonebackpack help &8» &7Show this help menu"

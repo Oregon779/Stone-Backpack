@@ -18,14 +18,15 @@ Personal backpacks with permission-based sizes for Paper servers, by **Stone Plu
 8. [The Backpack Item](#the-backpack-item)
 9. [Blocked Items](#blocked-items)
 10. [Backups and Restoring Items](#backups-and-restoring-items)
-11. [World Restrictions](#world-restrictions)
-12. [Configuration Reference](#configuration-reference)
-13. [Messages and Languages](#messages-and-languages)
-14. [Data Storage and Safety](#data-storage-and-safety)
-15. [Update Checker](#update-checker)
-16. [Performance Tips for Large Servers](#performance-tips-for-large-servers)
-17. [FAQ and Troubleshooting](#faq-and-troubleshooting)
-18. [Building from Source](#building-from-source)
+11. [Item Storage](#item-storage)
+12. [World Restrictions](#world-restrictions)
+13. [Configuration Reference](#configuration-reference)
+14. [Messages and Languages](#messages-and-languages)
+15. [Data Storage and Safety](#data-storage-and-safety)
+16. [Update Checker](#update-checker)
+17. [Performance Tips for Large Servers](#performance-tips-for-large-servers)
+18. [FAQ and Troubleshooting](#faq-and-troubleshooting)
+19. [Building from Source](#building-from-source)
 
 ---
 
@@ -36,6 +37,7 @@ StoneBackpack gives every player a personal backpack that is saved permanently. 
 - open your own backpack with `/backpack` (or `/bp`, `/rucksack`)
 - give players **1 to 6 rows** (9 to 54 slots) through **permissions** - the backpack grows automatically when a player gets a bigger size
 - give players **up to 10 pages**, also through permissions, with arrow buttons to switch between them
+- keep the items of pages a player loses in an **item storage**, from which admins hand them back in a **GUI**
 - hand out a **physical backpack item** that opens the backpack with a right-click
 - block items that must not go into a backpack - by default all **shulker boxes**, and always the backpack item itself
 - let admins **open, inspect and edit** the backpack of any player, online or offline
@@ -128,6 +130,7 @@ Aliases: `/bp`, `/rucksack`
 | `/stonebackpack give <player>` | Give the physical backpack item to an online player | `stonebackpack.admin` |
 | `/stonebackpack inspect <player>` | Open any player's backpack (online or offline) to view and edit it | `stonebackpack.admin` |
 | `/stonebackpack backups` | Open the backup menu - see [Backups and Restoring Items](#backups-and-restoring-items) | `stonebackpack.admin` |
+| `/stonebackpack storage` | Open the item storage - see [Item Storage](#item-storage) | `stonebackpack.admin` |
 | `/stonebackpack reload` | Reload `config.yml` and the messages, restart autosave, backups and the update checker | `stonebackpack.admin` |
 | `/stonebackpack checkupdate` | Check Modrinth for a new version right now | `stonebackpack.admin` |
 | `/stonebackpack help` | Show the commands you are allowed to use | everyone |
@@ -140,7 +143,7 @@ Aliases: `/bp`, `/rucksack`
 - Offline players can be opened by name as long as they have joined the server before.
 - The cooldown (`command.cooldown-seconds`, default 2) only applies to `/backpack`. `stonebackpack.bypass.cooldown` and `stonebackpack.admin` skip it.
 - `/stonebackpack inspect` has no cooldown and ignores [World Restrictions](#world-restrictions), so admins can check backpacks everywhere. Apart from that, it opens the backpack exactly like `/backpack <player>`.
-- The console can use `give`, `reload`, `checkupdate` and `help`. `/backpack`, `inspect` and `backups` need a player.
+- The console can use `give`, `reload`, `checkupdate` and `help`. `/backpack`, `inspect`, `backups` and `storage` need a player.
 - Unknown subcommands show the help. Tab-completion only suggests what you may use.
 
 **Examples**
@@ -151,6 +154,7 @@ Aliases: `/bp`, `/rucksack`
 /stonebackpack give Notch
 /stonebackpack inspect Notch
 /stonebackpack backups
+/stonebackpack storage
 /stonebackpack reload
 ```
 
@@ -162,7 +166,7 @@ Aliases: `/bp`, `/rucksack`
 |---|---|---|
 | `stonebackpack.use` | Open your own backpack with `/backpack` or the backpack item | everyone |
 | `stonebackpack.others` | Open and edit other players' backpacks with `/backpack <player>` | OP |
-| `stonebackpack.admin` | All admin commands (`give`, `inspect`, `backups`, `reload`, `checkupdate`), update notifications, and it also acts as `others`, `bypass.cooldown` and `bypass.blocklist` | OP |
+| `stonebackpack.admin` | All admin commands (`give`, `inspect`, `backups`, `storage`, `reload`, `checkupdate`), update notifications, and it also acts as `others`, `bypass.cooldown` and `bypass.blocklist` | OP |
 | `stonebackpack.bypass.cooldown` | Skip the `/backpack` cooldown | OP |
 | `stonebackpack.bypass.blocklist` | Put [blocked items](#blocked-items) into a backpack anyway | OP |
 | `stonebackpack.size.1` ... `stonebackpack.size.6` | Backpack with 1 to 6 rows (9 to 54 slots) - see [Backpack Sizes](#backpack-sizes) | nobody |
@@ -209,7 +213,7 @@ backpack:
 - The arrows can't be taken, moved or covered, also not by admins. They are never saved and never end up in backups.
 - **No items are lost through the arrows:** when a page gets an arrow in a slot that holds an item (for example the bottom right slot of an existing backpack when the player gets a second page), that item moves to the first free slot on the next page.
 - Changes to page permissions apply the next time the backpack is opened, also while the player stays online.
-- **Losing a page permission:** the pages above it are removed on the next open. Their items move to free slots on the remaining pages, so nothing is lost. Only if they don't all fit does the last page stay, as an extra page: items can be taken out of it but not put in (admins can still put items in). It disappears once everything fits on the allowed pages again.
+- **Losing a page permission:** the pages above it are removed on the next open. All items on them go to the [item storage](#item-storage), where admins can give them back. The player gets a message how many item stacks were stored. Nothing is lost.
 - Rows are not affected: a backpack never gets fewer rows (see [Backpack Sizes](#backpack-sizes)).
 - Admins opening another player's backpack can switch through all of its pages the same way.
 - The permission names can be changed under `backpack.page-permissions` in `config.yml`, just like the size permissions.
@@ -272,6 +276,33 @@ Good to know:
 - The menu closes after copying, so a double-click can't create two copies.
 - Shulker boxes that were in the backup (only possible with the blocklist bypass) are given to you directly, not packed into another shulker box.
 - To turn backups off, set `backups.enabled: false` and run `/stonebackpack reload`. Existing backups can still be viewed.
+
+---
+
+## Item Storage
+
+When a player loses page permissions, the items on the pages they no longer have are not deleted and not squeezed onto the remaining pages. They go to the item storage instead, and an admin decides what happens with them.
+
+- The items are moved the next time the backpack is opened, also while the player stays online. The backpack is saved right after, so the items are always in exactly one place.
+- The player gets a message: "3 item stack(s) from backpack pages you no longer have were put into storage. An admin can give them back to you." The console logs it too.
+- A player's storage keeps growing if they lose pages more than once, until an admin empties it.
+
+**Handing items back**
+
+1. Run `/stonebackpack storage` (permission `stonebackpack.admin`). A menu lists **every player with stored items** - online or offline - newest first. The heads show how many item stacks are stored and when the last ones were added.
+2. Click a player's head to see their stored items (45 per page).
+3. Choose what to do:
+   - **Click an item** to take it into your own inventory.
+   - **Give everything to the player** puts all items straight into their inventory. Only possible while they are online. Whatever doesn't fit stays in the storage.
+   - **Take everything as shulker box(es)** puts all items into your inventory, packed into shulker boxes of 27, to hand over later.
+
+Good to know:
+
+- Every action takes the items **out** of the storage. Nothing is copied, and a double click or a second admin can't hand out the same item twice - if the storage changed in the meantime, the menu says so and nothing is taken.
+- If your inventory is full, the rest is dropped at your feet, like with backups.
+- Every action is logged in the console with admin, player and items.
+- A player disappears from the list once their storage is empty.
+- The storage is kept in `storage/<uuid>.yml`.
 
 ---
 
@@ -354,16 +385,18 @@ Leave `data.save-on-close` and `data.save-on-quit` on unless you have a reason. 
 
 | Placeholder | Used in |
 |---|---|
-| `{player}` | `general.player-not-found`, `backpack.opened-other`, `backpack.inspecting`, `backpack.gave-item`, `backups.none-yet`, `backups.empty`, `backups.copied`, `backups.shulker-name`, `backups.gui.backup-title`, `backups.gui.player-name`, and `backpack.title` in `config.yml` |
+| `{player}` | `general.player-not-found`, `backpack.opened-other`, `backpack.inspecting`, `backpack.gave-item`, `backups.none-yet`, `backups.empty`, `backups.copied`, `backups.shulker-name`, `backups.gui.backup-title`, `backups.gui.player-name`, all `storage.*` texts about a player, and `backpack.title` in `config.yml` |
 | `{seconds}` | `backpack.cooldown` |
+| `{amount}` `{item}` | `storage.taken` |
+| `{given}` `{kept}` | `storage.given-partly` |
 | `{interval}` | `backups.none-yet` |
-| `{stacks}` | `backups.copied` |
-| `{index}` `{total}` | `backups.shulker-name` |
-| `{page}` `{pages}` | `backpack.next-page`, `backpack.previous-page` (the page the button leads to), `backups.gui.players-title`, `backups.gui.backup-title`, and `backpack.page-title` in `config.yml` |
-| `{time}` `{age}` | `backups.gui.info-time`, `backups.gui.info-age` |
+| `{stacks}` | `backups.copied`, `storage.taken-all`, `storage.given`, `storage.received`, `storage.gui.player-stacks`, `storage.gui.info-stacks` |
+| `{index}` `{total}` | `backups.shulker-name`, `storage.shulker-name` |
+| `{page}` `{pages}` | `backpack.next-page`, `backpack.previous-page` (the page the button leads to), `backups.gui.players-title`, `backups.gui.backup-title`, `storage.gui.players-title`, `storage.gui.items-title`, and `backpack.page-title` in `config.yml` |
+| `{time}` `{age}` | `backups.gui.info-time`, `backups.gui.info-age`, `storage.gui.player-updated` (only `{time}`) |
 | `{used}` `{slots}` | `backups.gui.info-slots` |
 | `{version}` `{current}` `{behind}` | `update.available` |
-| `{count}` | `update.versions-behind` |
+| `{count}` | `update.versions-behind`, `backpack.items-stored` |
 
 `prefix` is put in front of chat messages, except the help lines and the update notice (which has its own prefix in the text). Menu titles and item names are shown without it. When a message repeats something a player typed (for example an unknown player name), color codes and tags in it are shown as plain text, so nobody can add formatting or click actions to messages.
 
@@ -371,7 +404,7 @@ Leave `data.save-on-close` and `data.save-on-quit` on unless you have a reason. 
 
 ## Data Storage and Safety
 
-Every backpack is stored in `playerdata/<uuid>.yml`, the backups in `backups/<uuid>.yml`. `rows` and `pages` hold the size, `items` all pages one after another (page 1 first). Don't edit these files while the server is running - a backpack that is loaded (its owner is online) would overwrite your edit.
+Every backpack is stored in `playerdata/<uuid>.yml`, the backups in `backups/<uuid>.yml` and the [item storage](#item-storage) in `storage/<uuid>.yml`. `rows` and `pages` hold the size, `items` all pages one after another (page 1 first). Don't edit these files while the server is running - a backpack that is loaded (its owner is online) would overwrite your edit.
 
 - Backpacks are saved when they are closed, when the owner leaves and every `data.autosave-interval-minutes`. All disk work runs in the background, never on the main thread.
 - A backpack stays in memory while its owner is online, so opening it again is instant. Backpacks of offline players are removed from memory as soon as nobody has them open (at the latest with the next autosave).
@@ -423,7 +456,10 @@ Give them `stonebackpack.size.<rows>`, e.g. `stonebackpack.size.6` for 54 slots.
 Give them `stonebackpack.pages.<pages>`, e.g. `stonebackpack.pages.5` for 5 pages. See [Backpack Pages](#backpack-pages).
 
 **I removed a page permission, but the player still has the pages.**
-The change applies when the backpack is opened the next time. If a page stays after that, the items didn't fit on the allowed pages: the extra page only lets the player take items out and disappears once everything fits. See [Backpack Pages](#backpack-pages).
+The change applies when the backpack is opened the next time. The items of the removed pages are then in `/stonebackpack storage`. See [Item Storage](#item-storage).
+
+**A player lost a page permission. Where are their items?**
+In the item storage: `/stonebackpack storage`, click the player, then give the items back or take them. See [Item Storage](#item-storage).
 
 **I removed a size permission, but the player still has the big backpack.**
 Backpacks never shrink, so no items get lost. To make one smaller, empty it first, stop the server and set `rows` in the player's file in `playerdata/`.

@@ -2,9 +2,7 @@ package dev.stonebackpack.plugin.model;
 
 import org.bukkit.inventory.ItemStack;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 
 /**
@@ -38,68 +36,52 @@ public final class BackpackLayout {
                 || (hasNext(page, pageCount) && slot == nextSlot(rows));
     }
 
-    // Every page but the first has a back button, every page but the last a next button.
-    public static int capacity(int rows, int pageCount) {
-        return pageCount * rows * 9 - 2 * (pageCount - 1);
-    }
-
-    public static int pagesFor(int items, int rows) {
-        int pages = 1;
-        while (capacity(rows, pages) < items) {
-            pages++;
-        }
-        return pages;
-    }
-
-    // fromPage -1: the item's page no longer exists, so it goes to the first free slot.
     private record Displaced(ItemStack item, int fromPage) {
+    }
+
+    /** The laid-out pages, and the items that have no place on them. */
+    public record Layout(List<ItemStack[]> pages, List<ItemStack> removed) {
     }
 
     /**
      * Lays the stored pages out as {@code pageCount} pages of {@code rows}
-     * rows, or more if the items don't fit on those. An item without a place
-     * there - where a page button goes, or in a row or page that no longer
-     * exists - moves to the first free slot from the next page on. Items that
-     * have a place keep it, so laying out the result again changes nothing.
+     * rows. An item where a page button goes, or in a row that no longer
+     * exists, moves to the first free slot from the next page on. Items of
+     * pages beyond {@code pageCount}, and any item that finds no free slot,
+     * are returned as removed instead of being dropped. Items that have a
+     * place keep it, so laying out the result again changes nothing.
      */
-    public static List<ItemStack[]> arrange(List<ItemStack[]> stored, int rows, int pageCount) {
+    public static Layout arrange(List<ItemStack[]> stored, int rows, int pageCount) {
         int size = rows * 9;
-        int count = Math.max(Math.max(1, pageCount), pagesFor(countItems(stored), rows));
+        int count = Math.max(1, pageCount);
         List<ItemStack[]> pages = new ArrayList<>(count);
         for (int page = 0; page < count; page++) {
             pages.add(new ItemStack[size]);
         }
-        Deque<Displaced> displaced = new ArrayDeque<>();
+        List<Displaced> displaced = new ArrayList<>();
+        List<ItemStack> removed = new ArrayList<>();
         for (int page = 0; page < stored.size(); page++) {
             ItemStack[] old = stored.get(page);
             for (int slot = 0; slot < old.length; slot++) {
-                if (isEmpty(old[slot])) {
+                ItemStack item = old[slot];
+                if (isEmpty(item)) {
                     continue;
                 }
-                if (page < count && slot < size && !isButtonSlot(slot, page, count, rows)) {
-                    pages.get(page)[slot] = old[slot];
+                if (page >= count) {
+                    removed.add(item);
+                } else if (slot < size && !isButtonSlot(slot, page, count, rows)) {
+                    pages.get(page)[slot] = item;
                 } else {
-                    displaced.add(new Displaced(old[slot], page < count ? page : -1));
+                    displaced.add(new Displaced(item, page));
                 }
             }
         }
-
-        while (!displaced.isEmpty()) {
-            Displaced next = displaced.poll();
-            if (!placeFrom(pages, next.item(), next.fromPage() + 1, rows)) {
-                // Not reached while the page count above covers every item; kept
-                // so that a miscount opens another page instead of dropping one.
-                ItemStack[] last = pages.getLast();
-                ItemStack underButton = last[nextSlot(rows)];
-                last[nextSlot(rows)] = null;
-                pages.add(new ItemStack[size]);
-                if (!isEmpty(underButton)) {
-                    displaced.addFirst(new Displaced(underButton, pages.size() - 2));
-                }
-                displaced.addFirst(next);
+        for (Displaced item : displaced) {
+            if (!placeFrom(pages, item.item(), item.fromPage() + 1, rows)) {
+                removed.add(item.item());
             }
         }
-        return pages;
+        return new Layout(pages, removed);
     }
 
     // Tries the pages from firstPage on, wrapping around to the first page.
@@ -116,18 +98,6 @@ public final class BackpackLayout {
             }
         }
         return false;
-    }
-
-    public static int countItems(List<ItemStack[]> pages) {
-        int items = 0;
-        for (ItemStack[] page : pages) {
-            for (ItemStack item : page) {
-                if (!isEmpty(item)) {
-                    items++;
-                }
-            }
-        }
-        return items;
     }
 
     private static boolean isEmpty(ItemStack item) {

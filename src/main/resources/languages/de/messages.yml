@@ -17,7 +17,7 @@ backpack:
   gave-item: "&a✔ Du hast &b{player} &aeinen Rucksack gegeben."
   next-page: "&aNächste Seite &7({page}/{pages}) &8»"
   previous-page: "&8« &aVorherige Seite &7({page}/{pages})"
-  page-over-limit: "&c✖ Diese Seite liegt über deinem Seiten-Limit. Hier kannst du nur Items herausnehmen."
+  items-stored: "&e⚠ {count} Item-Stack(s) von Rucksack-Seiten, die du nicht mehr hast, wurden eingelagert. Ein Admin kann sie dir zurückgeben."
 
 backups:
   none-yet: "&c✖ Für &f{player} &cgibt es noch kein Backup. Entweder wurde der Rucksack noch nie benutzt oder die erste Sicherung steht noch aus (alle {interval}s)."
@@ -40,6 +40,33 @@ backups:
     copy-name: "&aAls Shulker-Box kopieren"
     copy-lore: "&7Legt den kompletten Inhalt als Shulker-Box(en) in dein Inventar"
 
+storage:
+  none: "&e⚠ Es sind keine Items eingelagert. Hier landen Items, wenn ein Spieler Rucksack-Seiten verliert."
+  none-player: "&e⚠ Für &f{player} &esind keine Items mehr eingelagert."
+  changed: "&e⚠ Das Lager von &f{player} &ehat sich inzwischen geändert, es wurde nichts entnommen. Bitte versuche es erneut."
+  taken: "&a✔ Du hast &b{amount}x {item} &aaus dem Lager von &b{player} &agenommen."
+  taken-all: "&a✔ Du hast alle &b{stacks} &aItem-Stack(s) von &b{player} &aals Shulker-Box(en) genommen."
+  given: "&a✔ &b{player} &ahat &b{stacks} &aItem-Stack(s) zurückbekommen."
+  given-partly: "&e⚠ &f{player} &ehat &f{given} &eItem-Stack(s) zurückbekommen; &f{kept} &epassten nicht und bleiben eingelagert."
+  received: "&a✔ Ein Admin hat dir &b{stacks} &aItem-Stack(s) aus deinem Rucksack zurückgegeben."
+  player-offline: "&c✖ &f{player} &cist offline. Nimm mit \"Alles nehmen\" alles an dich und gib es später weiter."
+  shulker-name: "&6Lager: &f{player} &7({index}/{total})"
+  gui:
+    players-title: "&8Item-Lager &7- Seite {page}/{pages}"
+    items-title: "&8Lager: &7{player} &8({page}/{pages})"
+    player-name: "&e{player}"
+    player-stacks: "&7Eingelagert: &f{stacks} &7Item-Stack(s)"
+    player-updated: "&7Zuletzt hinzugefügt: &f{time}"
+    player-lore: "&7Klicken, um die Items anzusehen"
+    info-name: "&6Eingelagerte Items"
+    info-stacks: "&7Item-Stacks: &f{stacks}"
+    info-hint: "&7Klicke auf ein Item, um es zu nehmen"
+    give-name: "&aAlles an {player} zurückgeben"
+    offline-name: "&7{player} ist offline"
+    give-lore: "&7Ins Inventar des Spielers; was nicht passt, bleibt eingelagert"
+    take-all-name: "&aAlles nehmen (als Shulker-Box)"
+    take-all-lore: "&7Legt alle Items in dein Inventar"
+
 help:
   header: "<gradient:#9AA5B1:#FFB055><bold>▬▬▬▬▬ StoneBackpack Hilfe ▬▬▬▬▬</bold></gradient>"
   backpack: "&6/backpack &8» &7Öffne deinen eigenen Rucksack"
@@ -47,6 +74,7 @@ help:
   give: "&6/stonebackpack give <Spieler> &8» &7Gib einem Spieler das physische Rucksack-Item"
   inspect: "&6/stonebackpack inspect <Spieler> &8» &7Öffnet den Rucksack eines Spielers zum Ansehen oder Bearbeiten"
   backups: "&6/stonebackpack backups &8» &7Zeigt das letzte Backup jedes Online-Spielers"
+  storage: "&6/stonebackpack storage &8» &7Items von verlorenen Rucksack-Seiten zurückgeben"
   reload: "&6/stonebackpack reload &8» &7Lädt Konfiguration und Nachrichten neu"
   checkupdate: "&6/stonebackpack checkupdate &8» &7Prüft Modrinth sofort auf eine neue Version"
   help: "&6/stonebackpack help &8» &7Zeigt dieses Hilfemenü"

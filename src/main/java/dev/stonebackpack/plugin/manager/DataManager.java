@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
@@ -36,9 +38,17 @@ public class DataManager {
     public record Backup(long timestamp, BackpackData data) {
     }
 
+    /** Items taken out of a backpack because its owner lost pages, kept for admins. */
+    public record StoredItems(String name, long updated, List<ItemStack> items) {
+    }
+
+    public record StoredSummary(UUID playerId, String name, int stacks, long updated) {
+    }
+
     private final Plugin plugin;
     private final File playerDataFolder;
     private final File backupFolder;
+    private final File storageFolder;
 
     // Dedicated threads instead of Paper's async scheduler, whose pool starts a
     // new thread for every task that finds no idle one - an autosave over 300
@@ -53,6 +63,7 @@ public class DataManager {
         this.plugin = plugin;
         this.playerDataFolder = new File(plugin.getDataFolder(), "playerdata");
         this.backupFolder = new File(plugin.getDataFolder(), "backups");
+        this.storageFolder = new File(plugin.getDataFolder(), "storage");
     }
 
     public void init() {
@@ -62,6 +73,7 @@ public class DataManager {
         if (!backupFolder.exists() && backupFolder.mkdirs()) {
             plugin.getLogger().info("Created backups folder.");
         }
+        storageFolder.mkdirs();
     }
 
     public boolean hasData(UUID playerId) {
@@ -187,6 +199,150 @@ public class DataManager {
             return null;
         }
         return new Backup(yaml.getLong("timestamp", file.lastModified()), readContents(yaml));
+    }
+
+    // The item storage runs on the data IO thread like the backpack saves: a
+    // backpack saved right after adding its removed items is always written
+    // second, and every change is a read-modify-write that nothing interleaves.
+
+    public void addStoredAsync(UUID playerId, String name, List<ItemStack> items) {
+        submit(dataIo, () -> {
+            try {
+                StoredItems current = readStored(playerId);
+                List<ItemStack> all = new ArrayList<>(current == null ? List.of() : current.items());
+                all.addAll(items);
+                writeStored(playerId, new StoredItems(name, System.currentTimeMillis(), all));
+            } catch (Exception exception) {
+                plugin.getLogger().log(Level.SEVERE, "Could not store " + items.size() + " item stack(s) of " + name
+                        + " (" + playerId + "): " + items, exception);
+            }
+        });
+    }
+
+    public void loadStoredAsync(UUID playerId, Consumer<StoredItems> callback) {
+        submit(dataIo, () -> callback.accept(readStoredLogged(playerId)));
+    }
+
+    public void listStoredAsync(Consumer<List<StoredSummary>> callback) {
+        submit(dataIo, () -> {
+            List<StoredSummary> summaries = new ArrayList<>();
+            File[] files = storageFolder.listFiles((dir, fileName) -> fileName.endsWith(".yml"));
+            for (File file : files == null ? new File[0] : files) {
+                UUID playerId;
+                try {
+                    playerId = UUID.fromString(file.getName().substring(0, file.getName().length() - 4));
+                } catch (IllegalArgumentException exception) {
+                    continue;
+                }
+                StoredItems stored = readStoredLogged(playerId);
+                if (stored != null && !stored.items().isEmpty()) {
+                    summaries.add(new StoredSummary(playerId, stored.name(), stored.items().size(), stored.updated()));
+                }
+            }
+            callback.accept(summaries);
+        });
+    }
+
+    /**
+     * Removes the item at {@code index} if it still is {@code expected}, so a
+     * stale menu can never hand out an item twice. The callback receives the
+     * removed item (null if the storage changed) and what is left.
+     */
+    public void takeStoredAsync(UUID playerId, int index, ItemStack expected, BiConsumer<ItemStack, StoredItems> callback) {
+        submit(dataIo, () -> {
+            StoredItems current = readStoredLogged(playerId);
+            if (current == null || index >= current.items().size() || !current.items().get(index).equals(expected)) {
+                callback.accept(null, current);
+                return;
+            }
+            List<ItemStack> remaining = new ArrayList<>(current.items());
+            ItemStack taken = remaining.remove(index);
+            StoredItems after = new StoredItems(current.name(), current.updated(), remaining);
+            if (writeStoredLogged(playerId, after)) {
+                callback.accept(taken, after);
+            } else {
+                callback.accept(null, current);
+            }
+        });
+    }
+
+    /** Empties the storage of a player and hands its items to the callback (empty if there were none). */
+    public void takeAllStoredAsync(UUID playerId, Consumer<List<ItemStack>> callback) {
+        submit(dataIo, () -> {
+            StoredItems current = readStoredLogged(playerId);
+            if (current == null || current.items().isEmpty()) {
+                callback.accept(List.of());
+                return;
+            }
+            boolean emptied = writeStoredLogged(playerId, new StoredItems(current.name(), current.updated(), List.of()));
+            callback.accept(emptied ? current.items() : List.of());
+        });
+    }
+
+    private StoredItems readStoredLogged(UUID playerId) {
+        try {
+            return readStored(playerId);
+        } catch (Exception exception) {
+            plugin.getLogger().log(Level.SEVERE, "Could not read the item storage of " + playerId + ".", exception);
+            return null;
+        }
+    }
+
+    // A broken file is moved aside rather than overwritten by the next change.
+    private StoredItems readStored(UUID playerId) throws IOException {
+        File file = storageFileFor(playerId);
+        if (!file.exists()) {
+            return null;
+        }
+        YamlConfiguration yaml = new YamlConfiguration();
+        try {
+            yaml.load(file);
+        } catch (InvalidConfigurationException exception) {
+            File aside = new File(file.getParentFile(), file.getName() + ".corrupt-" + System.currentTimeMillis());
+            if (!file.renameTo(aside)) {
+                throw new IOException("Item storage file is corrupt and could not be moved aside: " + file, exception);
+            }
+            plugin.getLogger().severe("The item storage file of " + playerId + " was corrupt and has been moved to "
+                    + aside.getName() + ". Cause: " + exception.getMessage());
+            return null;
+        }
+        List<ItemStack> items = new ArrayList<>();
+        List<?> rawItems = yaml.getList("items");
+        if (rawItems != null) {
+            for (Object element : rawItems) {
+                if (element instanceof ItemStack item && !item.isEmpty()) {
+                    items.add(item);
+                }
+            }
+        }
+        return new StoredItems(yaml.getString("name", playerId.toString()), yaml.getLong("updated", file.lastModified()), items);
+    }
+
+    private boolean writeStoredLogged(UUID playerId, StoredItems stored) {
+        try {
+            writeStored(playerId, stored);
+            return true;
+        } catch (Exception exception) {
+            plugin.getLogger().log(Level.SEVERE, "Could not save the item storage of " + playerId + ".", exception);
+            return false;
+        }
+    }
+
+    private void writeStored(UUID playerId, StoredItems stored) throws IOException {
+        File file = storageFileFor(playerId);
+        if (stored.items().isEmpty()) {
+            Files.deleteIfExists(file.toPath());
+            return;
+        }
+        YamlConfiguration yaml = new YamlConfiguration();
+        yaml.set("name", stored.name());
+        yaml.set("updated", stored.updated());
+        yaml.set("items", stored.items());
+        AtomicFiles.write(file.toPath(), yaml.saveToString(), true);
+    }
+
+    private File storageFileFor(UUID playerId) {
+        return new File(storageFolder, playerId + ".yml");
     }
 
     private void writeLogged(File target, BackpackData data, Long timestamp, boolean sync, String description) {
