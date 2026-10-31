@@ -208,8 +208,9 @@ backpack:
 - An item held on the cursor comes along to the other page, so items can be moved between pages directly.
 - The arrows can't be taken, moved or covered, also not by admins. They are never saved and never end up in backups.
 - **No items are lost through the arrows:** when a page gets an arrow in a slot that holds an item (for example the bottom right slot of an existing backpack when the player gets a second page), that item moves to the first free slot on the next page.
-- New pages are added the next time the player opens the backpack while online.
-- If a player loses a page permission, pages that still hold items stay until they are emptied. Empty pages above the permission disappear the next time the backpack is loaded (after the player was offline).
+- Changes to page permissions apply the next time the backpack is opened, also while the player stays online.
+- **Losing a page permission:** the pages above it are removed on the next open. Their items move to free slots on the remaining pages, so nothing is lost. Only if they don't all fit does the last page stay, as an extra page: items can be taken out of it but not put in (admins can still put items in). It disappears once everything fits on the allowed pages again.
+- Rows are not affected: a backpack never gets fewer rows (see [Backpack Sizes](#backpack-sizes)).
 - Admins opening another player's backpack can switch through all of its pages the same way.
 - The permission names can be changed under `backpack.page-permissions` in `config.yml`, just like the size permissions.
 
@@ -422,7 +423,7 @@ Give them `stonebackpack.size.<rows>`, e.g. `stonebackpack.size.6` for 54 slots.
 Give them `stonebackpack.pages.<pages>`, e.g. `stonebackpack.pages.5` for 5 pages. See [Backpack Pages](#backpack-pages).
 
 **I removed a page permission, but the player still has the pages.**
-Pages that still hold items are kept so nothing gets lost. Once they are empty, they disappear the next time the backpack is loaded.
+The change applies when the backpack is opened the next time. If a page stays after that, the items didn't fit on the allowed pages: the extra page only lets the player take items out and disappears once everything fits. See [Backpack Pages](#backpack-pages).
 
 **I removed a size permission, but the player still has the big backpack.**
 Backpacks never shrink, so no items get lost. To make one smaller, empty it first, stop the server and set `rows` in the player's file in `playerdata/`.

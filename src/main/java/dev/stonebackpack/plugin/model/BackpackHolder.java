@@ -14,12 +14,14 @@ public class BackpackHolder implements InventoryHolder {
     private final UUID ownerId;
     private final int page;
     private final int pageCount;
+    private final boolean overLimit;
     private Inventory inventory;
 
-    public BackpackHolder(UUID ownerId, int page, int pageCount) {
+    public BackpackHolder(UUID ownerId, int page, int pageCount, boolean overLimit) {
         this.ownerId = ownerId;
         this.page = page;
         this.pageCount = pageCount;
+        this.overLimit = overLimit;
     }
 
     public UUID getOwnerId() {
@@ -32,6 +34,14 @@ public class BackpackHolder implements InventoryHolder {
 
     public int getPageCount() {
         return pageCount;
+    }
+
+    /**
+     * A page above the owner's page permission, kept only because their items
+     * don't fit on fewer pages. Items can be taken out but not put in.
+     */
+    public boolean isOverLimit() {
+        return overLimit;
     }
 
     public boolean isButtonSlot(int slot) {

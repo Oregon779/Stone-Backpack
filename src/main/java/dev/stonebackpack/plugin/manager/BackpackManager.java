@@ -33,10 +33,15 @@ public class BackpackManager {
     // snapshotting hundreds of backpacks never lands in a single tick.
     private static final int SPREAD_TICKS = 20;
 
+    // The page limit of a backpack loaded while its owner was offline, whose
+    // permissions are unknown: every stored page stays.
+    private static final int NO_LIMIT = Integer.MAX_VALUE;
+
     private final StoneBackpack plugin;
 
-    // One inventory per page, all with the same number of rows.
-    private record Backpack(int rows, List<Inventory> pages) {
+    // One inventory per page, all with the same number of rows. Pages from
+    // pageLimit on only exist because the items don't fit on fewer.
+    private record Backpack(int rows, int pageLimit, List<Inventory> pages) {
         boolean hasViewers() {
             for (Inventory page : pages) {
                 if (!page.getViewers().isEmpty()) {
@@ -125,15 +130,17 @@ public class BackpackManager {
             return;
         }
 
-        // Pages beyond the owner's permission are only dropped while empty.
         int rows;
+        int limit;
         int pages;
         if (target instanceof Player onlineTarget && onlineTarget.isOnline()) {
             int allowed = getAllowedRows(onlineTarget);
             rows = stored != null ? Math.max(stored.rows(), allowed) : allowed;
-            pages = getAllowedPages(onlineTarget);
+            limit = getAllowedPages(onlineTarget);
+            pages = limit;
         } else {
             rows = stored != null ? stored.rows() : plugin.getConfigManager().getDefaultRows();
+            limit = NO_LIMIT;
             pages = stored != null ? stored.pages() : plugin.getConfigManager().getDefaultPages();
         }
         List<ItemStack[]> storedPages = new ArrayList<>();
@@ -142,7 +149,7 @@ public class BackpackManager {
                 storedPages.add(stored.page(page));
             }
         }
-        loaded.put(ownerId, build(ownerId, ownerName, rows, pages, storedPages));
+        loaded.put(ownerId, build(ownerId, ownerName, rows, pages, limit, storedPages));
         for (Player viewer : viewers) {
             show(viewer, target, ownerId, ownerName, loaded.get(ownerId));
         }
@@ -161,10 +168,11 @@ public class BackpackManager {
     }
 
     private void show(Player viewer, OfflinePlayer target, UUID ownerId, String ownerName, Backpack backpack) {
+        // The page count follows the owner's permission both ways; rows only grow.
         if (target instanceof Player onlineTarget && onlineTarget.isOnline()) {
             int allowedRows = getAllowedRows(onlineTarget);
             int allowedPages = getAllowedPages(onlineTarget);
-            if (allowedRows > backpack.rows() || allowedPages > backpack.pages().size()) {
+            if (allowedRows > backpack.rows() || allowedPages != backpack.pageLimit() || canDropPages(backpack)) {
                 backpack = rebuild(backpack, ownerId, ownerName, Math.max(allowedRows, backpack.rows()), allowedPages);
                 loaded.put(ownerId, backpack);
             }
@@ -173,28 +181,41 @@ public class BackpackManager {
         playSound(viewer, plugin.getConfigManager().getOpenSound());
     }
 
-    private Backpack build(UUID ownerId, String ownerName, int rows, int minPages, List<ItemStack[]> storedPages) {
-        List<ItemStack[]> laidOut = BackpackLayout.arrange(storedPages, rows, minPages);
-        int pageCount = laidOut.size();
-        List<Inventory> pages = new ArrayList<>(pageCount);
-        for (int page = 0; page < pageCount; page++) {
-            BackpackHolder holder = new BackpackHolder(ownerId, page, pageCount);
-            Inventory inventory = Bukkit.createInventory(holder, rows * 9, title(ownerName, page, pageCount));
+    private Backpack build(UUID ownerId, String ownerName, int rows, int pageCount, int limit, List<ItemStack[]> storedPages) {
+        List<ItemStack[]> laidOut = BackpackLayout.arrange(storedPages, rows, pageCount);
+        int count = laidOut.size();
+        List<Inventory> pages = new ArrayList<>(count);
+        for (int page = 0; page < count; page++) {
+            BackpackHolder holder = new BackpackHolder(ownerId, page, count, page >= limit);
+            Inventory inventory = Bukkit.createInventory(holder, rows * 9, title(ownerName, page, count));
             holder.setInventory(inventory);
             inventory.setContents(laidOut.get(page));
             ItemManager items = plugin.getItemManager();
             if (BackpackLayout.hasPrevious(page)) {
-                inventory.setItem(BackpackLayout.previousSlot(rows), items.createPageButton("backpack.previous-page", page, pageCount));
+                inventory.setItem(BackpackLayout.previousSlot(rows), items.createPageButton("backpack.previous-page", page, count));
             }
-            if (BackpackLayout.hasNext(page, pageCount)) {
-                inventory.setItem(BackpackLayout.nextSlot(rows), items.createPageButton("backpack.next-page", page + 2, pageCount));
+            if (BackpackLayout.hasNext(page, count)) {
+                inventory.setItem(BackpackLayout.nextSlot(rows), items.createPageButton("backpack.next-page", page + 2, count));
             }
             pages.add(inventory);
         }
-        return new Backpack(rows, List.copyOf(pages));
+        return new Backpack(rows, limit, List.copyOf(pages));
     }
 
-    private Backpack rebuild(Backpack old, UUID ownerId, String ownerName, int rows, int minPages) {
+    // True when pages above the limit hold items that now fit on fewer pages.
+    private boolean canDropPages(Backpack backpack) {
+        if (backpack.pages().size() <= backpack.pageLimit()) {
+            return false;
+        }
+        List<ItemStack[]> contents = new ArrayList<>();
+        for (int page = 0; page < backpack.pages().size(); page++) {
+            contents.add(withoutButtons(backpack, page, false));
+        }
+        int needed = BackpackLayout.pagesFor(BackpackLayout.countItems(contents), backpack.rows());
+        return Math.max(backpack.pageLimit(), needed) < backpack.pages().size();
+    }
+
+    private Backpack rebuild(Backpack old, UUID ownerId, String ownerName, int rows, int limit) {
         for (Inventory page : old.pages()) {
             for (HumanEntity viewer : Set.copyOf(page.getViewers())) {
                 viewer.closeInventory();
@@ -204,7 +225,7 @@ public class BackpackManager {
         for (int page = 0; page < old.pages().size(); page++) {
             contents.add(withoutButtons(old, page, false));
         }
-        return build(ownerId, ownerName, rows, minPages, contents);
+        return build(ownerId, ownerName, rows, limit, limit, contents);
     }
 
     private Component title(String ownerName, int page, int pageCount) {

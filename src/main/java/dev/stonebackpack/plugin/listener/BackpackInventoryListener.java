@@ -51,12 +51,17 @@ public class BackpackInventoryListener implements Listener {
             }
             return;
         }
+        ItemStack incoming = incomingItem(event, clickedTop);
+        if (holder.isOverLimit() && !player.hasPermission("stonebackpack.admin")) {
+            if (incoming != null && !incoming.isEmpty()) {
+                event.setCancelled(true);
+                plugin.getMessageManager().send(player, "backpack.page-over-limit", null);
+            }
+            return;
+        }
         if (player.hasPermission("stonebackpack.bypass.blocklist") || player.hasPermission("stonebackpack.admin")) {
             return;
         }
-
-        ItemStack incoming = incomingItem(event, clickedTop);
-
         if (isDisallowed(incoming)) {
             event.setCancelled(true);
             plugin.getMessageManager().send(player, "backpack.item-blocked", null);
@@ -94,11 +99,16 @@ public class BackpackInventoryListener implements Listener {
             event.setCancelled(true);
             return;
         }
+        boolean touchesTop = event.getRawSlots().stream().anyMatch(slot -> slot < topSize);
+        if (touchesTop && holder.isOverLimit() && !player.hasPermission("stonebackpack.admin")) {
+            event.setCancelled(true);
+            plugin.getMessageManager().send(player, "backpack.page-over-limit", null);
+            return;
+        }
         if (player.hasPermission("stonebackpack.bypass.blocklist") || player.hasPermission("stonebackpack.admin")) {
             return;
         }
 
-        boolean touchesTop = event.getRawSlots().stream().anyMatch(slot -> slot < topSize);
         if (touchesTop && isDisallowed(event.getOldCursor())) {
             event.setCancelled(true);
             plugin.getMessageManager().send(player, "backpack.item-blocked", null);

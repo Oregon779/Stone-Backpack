@@ -1,5 +1,5 @@
 name: StoneBackpack
-version: '1.5.0-dev2'
+version: '1.5.0-dev3'
 main: dev.stonebackpack.plugin.StoneBackpack
 api-version: '26.2'
 author: Stone Plugins

@@ -17,6 +17,7 @@ backpack:
   gave-item: "&a✔ Du hast &b{player} &aeinen Rucksack gegeben."
   next-page: "&aNächste Seite &7({page}/{pages}) &8»"
   previous-page: "&8« &aVorherige Seite &7({page}/{pages})"
+  page-over-limit: "&c✖ Diese Seite liegt über deinem Seiten-Limit. Hier kannst du nur Items herausnehmen."
 
 backups:
   none-yet: "&c✖ Für &f{player} &cgibt es noch kein Backup. Entweder wurde der Rucksack noch nie benutzt oder die erste Sicherung steht noch aus (alle {interval}s)."

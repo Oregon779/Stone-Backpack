@@ -72,15 +72,35 @@ class BackpackLayoutTest {
     }
 
     @Test
-    void pagesBeyondTheMinimumStayOnlyWhileTheyHoldItems() {
+    void itemsOfRemovedPagesMoveToTheFirstFreeSlot() {
         ItemStack first = new ItemStack(Material.DIAMOND);
         ItemStack last = new ItemStack(Material.EMERALD);
 
-        assertEquals(1, BackpackLayout.arrange(List.of(pageWith(27, 0, first), new ItemStack[27], new ItemStack[27]), 3, 1).size());
+        List<ItemStack[]> pages = BackpackLayout.arrange(
+                List.of(pageWith(27, 0, first), new ItemStack[27], pageWith(27, 4, last)), 3, 1);
 
-        List<ItemStack[]> kept = BackpackLayout.arrange(List.of(pageWith(27, 0, first), new ItemStack[27], pageWith(27, 4, last)), 3, 1);
-        assertEquals(3, kept.size());
-        assertSame(last, kept.get(2)[4]);
+        assertEquals(1, pages.size());
+        assertSame(first, pages.get(0)[0]);
+        assertSame(last, pages.get(0)[1]);
+
+        List<ItemStack[]> twoPages = BackpackLayout.arrange(
+                List.of(pageWith(27, 0, first), new ItemStack[27], pageWith(27, 4, last)), 3, 2);
+        assertEquals(2, twoPages.size());
+        assertSame(last, twoPages.get(0)[1]);
+    }
+
+    @Test
+    void removedPagesStayOnlyAsFarAsTheItemsDoNotFit() {
+        ItemStack[] full = fullPage(27);
+        ItemStack last = new ItemStack(Material.EMERALD);
+        List<ItemStack[]> stored = List.of(full, new ItemStack[27], pageWith(27, 4, last));
+
+        List<ItemStack[]> pages = BackpackLayout.arrange(stored, 3, 1);
+
+        assertEquals(2, pages.size());
+        assertSame(full[26], pages.get(1)[0]);
+        assertSame(last, pages.get(1)[1]);
+        assertEverythingKeptAndButtonSlotsFree(stored, pages, 3);
     }
 
     @Test
@@ -115,7 +135,7 @@ class BackpackLayoutTest {
         Random random = new Random(42);
         for (int run = 0; run < 500; run++) {
             int storedRows = 1 + random.nextInt(6);
-            int rows = storedRows + random.nextInt(7 - storedRows);
+            int rows = 1 + random.nextInt(6);
             int minPages = 1 + random.nextInt(BackpackLayout.MAX_PAGES);
             double fill = random.nextDouble();
             List<ItemStack[]> stored = new ArrayList<>();
@@ -131,9 +151,18 @@ class BackpackLayoutTest {
 
             List<ItemStack[]> pages = BackpackLayout.arrange(stored, rows, minPages);
 
-            assertTrue(pages.size() >= minPages);
+            int needed = BackpackLayout.pagesFor(BackpackLayout.countItems(stored), rows);
+            assertEquals(Math.max(minPages, needed), pages.size());
             pages.forEach(page -> assertEquals(rows * 9, page.length));
             assertEverythingKeptAndButtonSlotsFree(stored, pages, rows);
+            // Laying out the result again must not move anything (no reshuffling on every open).
+            List<ItemStack[]> again = BackpackLayout.arrange(pages, rows, minPages);
+            assertEquals(pages.size(), again.size());
+            for (int page = 0; page < pages.size(); page++) {
+                for (int slot = 0; slot < rows * 9; slot++) {
+                    assertSame(pages.get(page)[slot], again.get(page)[slot]);
+                }
+            }
         }
     }
 

@@ -38,42 +38,57 @@ public final class BackpackLayout {
                 || (hasNext(page, pageCount) && slot == nextSlot(rows));
     }
 
+    // Every page but the first has a back button, every page but the last a next button.
+    public static int capacity(int rows, int pageCount) {
+        return pageCount * rows * 9 - 2 * (pageCount - 1);
+    }
+
+    public static int pagesFor(int items, int rows) {
+        int pages = 1;
+        while (capacity(rows, pages) < items) {
+            pages++;
+        }
+        return pages;
+    }
+
+    // fromPage -1: the item's page no longer exists, so it goes to the first free slot.
     private record Displaced(ItemStack item, int fromPage) {
     }
 
     /**
-     * Lays the stored pages out as pages of {@code rows} rows: at least
-     * {@code minPages}, and as many as needed to keep every stored item. An
-     * item lying where a page button goes (or past the end of a page) moves to
-     * the first free slot from the next page on, so nothing is ever dropped.
+     * Lays the stored pages out as {@code pageCount} pages of {@code rows}
+     * rows, or more if the items don't fit on those. An item without a place
+     * there - where a page button goes, or in a row or page that no longer
+     * exists - moves to the first free slot from the next page on. Items that
+     * have a place keep it, so laying out the result again changes nothing.
      */
-    public static List<ItemStack[]> arrange(List<ItemStack[]> stored, int rows, int minPages) {
+    public static List<ItemStack[]> arrange(List<ItemStack[]> stored, int rows, int pageCount) {
         int size = rows * 9;
-        int pageCount = Math.max(1, Math.max(minPages, lastUsedPage(stored) + 1));
-        List<ItemStack[]> pages = new ArrayList<>(pageCount);
+        int count = Math.max(Math.max(1, pageCount), pagesFor(countItems(stored), rows));
+        List<ItemStack[]> pages = new ArrayList<>(count);
+        for (int page = 0; page < count; page++) {
+            pages.add(new ItemStack[size]);
+        }
         Deque<Displaced> displaced = new ArrayDeque<>();
-
-        for (int page = 0; page < pageCount; page++) {
-            ItemStack[] laidOut = new ItemStack[size];
-            ItemStack[] old = page < stored.size() ? stored.get(page) : new ItemStack[0];
+        for (int page = 0; page < stored.size(); page++) {
+            ItemStack[] old = stored.get(page);
             for (int slot = 0; slot < old.length; slot++) {
                 if (isEmpty(old[slot])) {
                     continue;
                 }
-                if (slot < size && !isButtonSlot(slot, page, pageCount, rows)) {
-                    laidOut[slot] = old[slot];
+                if (page < count && slot < size && !isButtonSlot(slot, page, count, rows)) {
+                    pages.get(page)[slot] = old[slot];
                 } else {
-                    displaced.add(new Displaced(old[slot], page));
+                    displaced.add(new Displaced(old[slot], page < count ? page : -1));
                 }
             }
-            pages.add(laidOut);
         }
 
         while (!displaced.isEmpty()) {
             Displaced next = displaced.poll();
             if (!placeFrom(pages, next.item(), next.fromPage() + 1, rows)) {
-                // Every slot is taken: open one more page. The former last page
-                // gets a next button, so whatever lies there moves on as well.
+                // Not reached while the page count above covers every item; kept
+                // so that a miscount opens another page instead of dropping one.
                 ItemStack[] last = pages.getLast();
                 ItemStack underButton = last[nextSlot(rows)];
                 last[nextSlot(rows)] = null;
@@ -103,15 +118,16 @@ public final class BackpackLayout {
         return false;
     }
 
-    private static int lastUsedPage(List<ItemStack[]> pages) {
-        for (int page = pages.size() - 1; page >= 0; page--) {
-            for (ItemStack item : pages.get(page)) {
+    public static int countItems(List<ItemStack[]> pages) {
+        int items = 0;
+        for (ItemStack[] page : pages) {
+            for (ItemStack item : page) {
                 if (!isEmpty(item)) {
-                    return page;
+                    items++;
                 }
             }
         }
-        return -1;
+        return items;
     }
 
     private static boolean isEmpty(ItemStack item) {

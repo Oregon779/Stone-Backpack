@@ -14,6 +14,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.permissions.PermissionAttachment;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
@@ -210,20 +211,85 @@ class PagesTest extends PluginTestBase {
     }
 
     @Test
-    void pagesBeyondThePermissionStayWhileTheyHoldItems() throws Exception {
-        PlayerMock keeper = server.addPlayer("Keeper");
+    void itemsOfPagesAboveThePermissionMoveToTheRemainingPages() throws Exception {
+        PlayerMock player = server.addPlayer("Keeper");
         ItemStack[] items = new ItemStack[81];
+        items[0] = new ItemStack(Material.DIAMOND);
         items[54 + 3] = new ItemStack(Material.NETHERITE_INGOT);
-        writeBackpack(keeper, 3, items);
-        assertEquals(3, holder(openOwnBackpack(keeper)).getPageCount());
+        writeBackpack(player, 3, items);
 
-        PlayerMock emptied = server.addPlayer("Emptied");
-        ItemStack[] onlyFirst = new ItemStack[81];
-        onlyFirst[0] = new ItemStack(Material.DIAMOND);
-        writeBackpack(emptied, 3, onlyFirst);
-        Inventory page = openOwnBackpack(emptied);
+        Inventory page = openOwnBackpack(player);
+
         assertEquals(1, holder(page).getPageCount());
         assertEquals(Material.DIAMOND, page.getItem(0).getType());
+        assertEquals(Material.NETHERITE_INGOT, page.getItem(1).getType());
+    }
+
+    @Test
+    void pageKeptForItemsThatDoNotFitOnlyAllowsTakingItemsOut() throws Exception {
+        PlayerMock player = server.addPlayer("Full");
+        ItemStack[] items = new ItemStack[54];
+        for (int i = 0; i < 27; i++) {
+            items[i] = new ItemStack(Material.DIRT, i + 1);
+        }
+        items[27 + 4] = new ItemStack(Material.EMERALD);
+        writeBackpack(player, 2, items);
+
+        Inventory first = openOwnBackpack(player);
+        assertEquals(2, holder(first).getPageCount());
+        assertFalse(holder(first).isOverLimit());
+        Inventory second = turn(player, NEXT);
+        assertTrue(holder(second).isOverLimit());
+        drainMessages(player);
+
+        player.setItemOnCursor(new ItemStack(Material.STONE));
+        assertTrue(click(player, 8, ClickType.LEFT, InventoryAction.PLACE_ALL).isCancelled());
+        assertTrue(drainMessages(player).getFirst().contains("page limit"));
+        InventoryDragEvent drag = new InventoryDragEvent(player.getOpenInventory(), null, new ItemStack(Material.STONE), false,
+                Map.of(8, new ItemStack(Material.STONE)));
+        server.getPluginManager().callEvent(drag);
+        assertTrue(drag.isCancelled());
+        player.setItemOnCursor(null);
+        int emeraldSlot = second.first(Material.EMERALD);
+        assertFalse(click(player, emeraldSlot, ClickType.LEFT, InventoryAction.PICKUP_ALL).isCancelled());
+
+        PlayerMock admin = server.addPlayer("Admin");
+        admin.setOp(true);
+        admin.performCommand("backpack Full");
+        settle();
+        turn(admin, NEXT);
+        admin.setItemOnCursor(new ItemStack(Material.STONE));
+        assertFalse(click(admin, 8, ClickType.LEFT, InventoryAction.PLACE_ALL).isCancelled());
+        admin.setItemOnCursor(null);
+        admin.closeInventory();
+
+        // Once everything fits on the allowed page again, the extra page goes away.
+        assertEquals(27, second.getItem(0).getAmount());
+        second.setItem(0, null);
+        second.setItem(emeraldSlot, null);
+        player.closeInventory();
+        assertEquals(1, holder(openOwnBackpack(player)).getPageCount());
+    }
+
+    @Test
+    void switchingBackFromPagesToASizePermissionTakesEffectOnTheNextOpen() {
+        PlayerMock player = server.addPlayer("Downgraded");
+        PermissionAttachment pages = player.addAttachment(plugin, "stonebackpack.pages.3", true);
+        player.addAttachment(plugin, "stonebackpack.size.3", true);
+        openOwnBackpack(player).setItem(0, new ItemStack(Material.DIAMOND));
+        turn(player, NEXT);
+        turn(player, NEXT).setItem(4, new ItemStack(Material.EMERALD, 2));
+        player.closeInventory();
+
+        pages.unsetPermission("stonebackpack.pages.3");
+        Inventory only = openOwnBackpack(player);
+
+        assertEquals(1, holder(only).getPageCount());
+        assertEquals(27, only.getSize());
+        assertNull(only.getItem(NEXT));
+        assertEquals(Material.DIAMOND, only.getItem(0).getType());
+        assertEquals(Material.EMERALD, only.getItem(1).getType());
+        assertEquals(2, only.getItem(1).getAmount());
     }
 
     @Test

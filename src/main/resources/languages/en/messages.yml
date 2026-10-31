@@ -17,6 +17,7 @@ backpack:
   gave-item: "&a✔ You gave a backpack to &b{player}&a."
   next-page: "&aNext page &7({page}/{pages}) &8»"
   previous-page: "&8« &aPrevious page &7({page}/{pages})"
+  page-over-limit: "&c✖ This page is above your page limit. You can only take items out of it."
 
 backups:
   none-yet: "&c✖ There is no backup for &f{player} &cyet. Either the backpack has never been used, or the first backup is still pending (every {interval}s)."
