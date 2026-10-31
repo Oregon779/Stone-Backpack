@@ -283,7 +283,7 @@ Good to know:
 
 When a player loses page permissions, the items on the pages they no longer have are not deleted and not squeezed onto the remaining pages. They go to the item storage instead, and an admin decides what happens with them.
 
-- The items are moved the next time the backpack is opened, also while the player stays online. The backpack is saved right after, so the items are always in exactly one place.
+- The items are moved the next time the backpack is opened, also while the player stays online. The storage is written first and the backpack right after it, so the items don't stay in the backpack as well. Even a crash in that moment can't lose them - at worst they are stored twice.
 - The player gets a message: "3 item stack(s) from backpack pages you no longer have were put into storage. An admin can give them back to you." The console logs it too.
 - A player's storage keeps growing if they lose pages more than once, until an admin empties it.
 
